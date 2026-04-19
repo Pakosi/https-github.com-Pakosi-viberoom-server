@@ -306,9 +306,10 @@ const WS_URL = (location.hostname === 'localhost' || location.hostname === '127.
 : 'wss://viberoom-server-production.up.railway.app';
 
 const CHARS = [
-{ key: 'pax',    name: 'Pax',    hoodie: '#e8b96a', hair: 'spikes',  skin: 0xf0c89c },
+{ key: 'pax',    name: 'Pax',    hoodie: '#e8b96a', hair: 'fade',  skin: 0xf0c89c },
 { key: 'shahed', name: 'Shahed', hoodie: '#4d90c8', hair: 'normal',  skin: 0xe8b888, bigNose: true },
 { key: 'arsham', name: 'Arsham', hoodie: 'barca',   hair: 'normal',  skin: 0xe8b888 },
+{ key: 'amir',   name: 'Amir',   hoodie: '#111111', hair: 'fade',    skin: 0xd8a078 },
 { key: 'arash',  name: 'Arash',  hoodie: '#c85a4a', hair: 'bald',    skin: 0xe8b888 },
 { key: 'custom', name: 'Custom', hoodie: '#a878c8', hair: 'normal',  skin: 0xf0c89c },
 ];
@@ -1370,6 +1371,10 @@ const headY = 2.9;
 if (preset.hair === 'bald') {
 const scalp = box(0.82, 0.15, 0.82, 0xf8d8b0);
 scalp.position.y = headY + 0.32; g.add(scalp);
+} else if (preset.hair === 'fade') {
+  const hair = box(0.82, 0.2, 0.82, 0x0a0a0a);
+  hair.position.y = headY + 0.25;
+  g.add(hair);
 } else if (preset.hair === 'spikes') {
 for (let i = 0; i < 7; i++) {
 const sp = box(0.18, 0.28, 0.18, 0x2a1a10);
