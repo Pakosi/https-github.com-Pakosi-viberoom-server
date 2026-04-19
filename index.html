@@ -269,7 +269,7 @@ import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.158/examples/js
 // CHANGE THIS to your deployed server in production
 const WS_URL = (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
   ? 'ws://localhost:3000'
-  : 'wss://YOUR-SERVER.up.railway.app'; // <-- replace with your deployed WS URL
+  : 'wss://viberoom-server-production.up.railway.app'; // <-- replace with your deployed WS URL
 
 // ==================== DEVICE DETECTION ====================
 const IS_MOBILE = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900;
