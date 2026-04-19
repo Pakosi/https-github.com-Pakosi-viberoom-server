@@ -1615,8 +1615,8 @@ else pendingLayout = null;
 function tryApplyPendingLayout() { if (pendingLayout) applyLayout(pendingLayout); }
 
 function saveLayout() {
-wsSend({ type: 'layout_save', data: buildLayoutSnapshot() });
-showBanner('LAYOUT SAVED', 'admin');
+  wsSend({ type: 'layout_save', layout: buildLayoutSnapshot() });
+  showBanner('LAYOUT SAVED', 'admin');
 }
 
 function handleEditKey(e) {
@@ -1732,7 +1732,7 @@ case 'welcome':
 myId = msg.id;
 for (const p of msg.players) addRemote(p.id, p.name, p.preset, p.pos);
 break;
-case 'layout_load': applyLayout(msg.data); break;
+case 'layout_load': applyLayout(msg.layout); break;
 case 'vault':
 if (typeof msg.data?.amount === 'number') { vaultAmount = msg.data.amount; updateSafeUI(); }
 break;
