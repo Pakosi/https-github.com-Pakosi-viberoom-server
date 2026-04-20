@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>The WOYS Room</title>
+<title>The Vibe Room</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Courier New', monospace; background: #0a0612; touch-action: none; overscroll-behavior: none; }
@@ -96,26 +96,43 @@ canvas { display: block; }
   font: 14px/1.5 monospace; overflow: auto;
 }
 #error-overlay b { color: #ffd27a; display:block; margin-bottom:8px; }
+
+/* Admin mobile controls */
+#admin-badge { display:none; }
+#admin-panel {
+  position:absolute; left:50%; bottom:16px; transform:translateX(-50%);
+  z-index:20; display:none; background:rgba(8,8,12,0.86); border:1px solid #c89b4a;
+  border-radius:10px; padding:10px; width:min(380px,94vw); backdrop-filter: blur(10px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+}
+#admin-panel .admin-title { color:#e8b96a; font:700 12px/1 monospace; letter-spacing:2px; margin-bottom:8px; text-align:center; }
+#admin-panel .admin-row { display:flex; gap:8px; justify-content:center; margin-bottom:8px; flex-wrap:wrap; }
+#admin-panel button {
+  background:#1a1510; color:#e8b96a; border:1px solid #c89b4a; border-radius:8px;
+  min-width:56px; min-height:42px; padding:8px 10px; font:700 12px monospace; cursor:pointer;
+}
+#admin-panel button:active { background:#c89b4a; color:#111; }
+#admin-info { color:#d8c8a8; text-align:center; font:11px/1.35 monospace; min-height:28px; }
 </style>
 </head>
 <body>
 <div id="game"><div id="error-overlay"></div>
 
   <div id="loading">
-    <h1>THE WOYS ROOM</h1>
+    <h1>THE VIBE ROOM</h1>
     <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
     <div id="load-bar-wrap"><div id="load-bar"></div></div>
     <div id="load-msg">INITIALIZING...</div>
   </div>
 
   <div id="start" style="display:none;">
-    <h1>THE WOYS ROOM</h1>
+    <h1>THE VIBE ROOM</h1>
     <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
     <input id="name-input" placeholder="YOUR NAME" maxlength="14" value="Pax">
     <div style="color:#e8b96a; font-size:10px; letter-spacing:3px; margin-bottom:10px;">▸ SELECT YOUR CHARACTER ◂</div>
     <div id="char-grid"></div>
     <div class="room-row">
-      <input id="room-input" placeholder="ROOM CODE" maxlength="20" value="woys-room">
+      <input id="room-input" placeholder="ROOM CODE" maxlength="20" value="vibe-room">
       <button id="begin">ENTER</button>
     </div>
     <p style="color:#a89878; font-size:10px; letter-spacing:1px; text-align:center; margin-top:10px; max-width: 340px;">Same room code = same room · Desktop click-to-lock · Mobile: joystick + swipe</p>
@@ -131,6 +148,7 @@ canvas { display: block; }
     <div class="badge" id="mic-badge">🎤 MIC OFF</div>
     <div class="badge" id="room-badge">ROOM: —</div>
     <div class="badge offline" id="conn-badge">● DISCONNECTED</div>
+    <div class="badge" id="admin-badge">ADMIN OFF</div>
   </div>
   <div id="crosshair" style="display:none;"></div>
   <div id="prompt"></div>
@@ -174,6 +192,13 @@ canvas { display: block; }
     </div>
   </div>
 
+  <div class="panel" id="war-panel">
+    <button class="close">✕</button>
+    <h2>◆ WAR TABLE ◆</h2>
+    <div class="mini-score">ROOM CONTROL CENTER</div>
+    <div class="mini-sub">People in room: <span id="war-count">0</span><br>Use this as your planning table until we make it properly insane.</div>
+  </div>
+
   <div class="panel" id="fifa-panel">
     <button class="close">✕</button>
     <h2>◆ PS5 FIFA ◆</h2>
@@ -190,6 +215,29 @@ canvas { display: block; }
     <div class="mini-sub">Tap shoot. 60% make chance because apparently realism is optional in luxury nonsense rooms.</div>
     <button id="ball-shoot">SHOOT</button>
     <button id="ball-reset">RESET</button>
+  </div>
+
+  <div id="admin-panel">
+    <div class="admin-title">ADMIN MOVE MODE</div>
+    <div id="admin-info">Select object</div>
+    <div class="admin-row">
+      <button id="admin-prev">PREV</button>
+      <button id="admin-next">NEXT</button>
+      <button id="admin-save">SAVE</button>
+      <button id="admin-exit">EXIT</button>
+    </div>
+    <div class="admin-row">
+      <button id="admin-left">◀</button>
+      <button id="admin-up">▲</button>
+      <button id="admin-right">▶</button>
+      <button id="admin-down">▼</button>
+    </div>
+    <div class="admin-row">
+      <button id="admin-rotl">⟲</button>
+      <button id="admin-rotr">⟳</button>
+      <button id="admin-raise">＋Y</button>
+      <button id="admin-lower">－Y</button>
+    </div>
   </div>
 
   <div id="mobile-ctrls">
@@ -269,11 +317,12 @@ CHARS.forEach((c, i) => {
 // ==================== THREE CORE ====================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x07080f);
-scene.fog = new THREE.FogExp2(0x07080f, 0.011);
+scene.fog = new THREE.FogExp2(0x07080f, MOBILE ? 0.007 : 0.0095);
 
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 240);
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const MOBILE = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900;
+renderer.setPixelRatio(MOBILE ? 1 : Math.min(window.devicePixelRatio, 1.75));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -503,18 +552,18 @@ scene.add(hemi);
 const key = new THREE.DirectionalLight(0xfff4d8, 1.2);
 key.position.set(4, 14, 6);
 key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
+key.shadow.mapSize.set(MOBILE ? 768 : 1536, MOBILE ? 768 : 1536);
 key.shadow.camera.left = -26; key.shadow.camera.right = 26;
 key.shadow.camera.top = 22; key.shadow.camera.bottom = -22;
 key.shadow.camera.near = 0.5; key.shadow.camera.far = 60;
 key.shadow.bias = -0.0006;
 scene.add(key);
 
-const purpleFill = new THREE.PointLight(0x5e47ff, 2.4, 34);
+const purpleFill = new THREE.PointLight(0x5e47ff, MOBILE ? 1.2 : 2.0, 30);
 purpleFill.position.set(-15, 6, -10);
 scene.add(purpleFill);
 
-const goldFill = new THREE.PointLight(0xe8b96a, 1.9, 30);
+const goldFill = new THREE.PointLight(0xe8b96a, MOBILE ? 1.0 : 1.7, 28);
 goldFill.position.set(14, 5, -8);
 scene.add(goldFill);
 
@@ -531,6 +580,94 @@ let cashStack = null;
 let centerSculpture = null;
 let tableTopDisplay = null;
 let tableInteractAnchor = new THREE.Vector3(0,0,0);
+
+const adminObjects = {};
+const adminOrder = [];
+let adminMode = false;
+let adminIndex = 0;
+const layoutState = {};
+
+function registerAdminObject(id, object3d, opts = {}) {
+  adminObjects[id] = { object3d, interactType: opts.interactType || null };
+  adminOrder.push(id);
+}
+function refreshAdminInfo() {
+  const badge = document.getElementById('admin-badge');
+  const info = document.getElementById('admin-info');
+  const panel = document.getElementById('admin-panel');
+  const isAdmin = player && player.name && player.name.toLowerCase() === 'pax';
+  badge.style.display = isAdmin ? 'block' : 'none';
+  panel.style.display = adminMode && isAdmin ? 'block' : 'none';
+  if (!isAdmin) return;
+  badge.textContent = adminMode ? 'ADMIN ON' : 'ADMIN OFF';
+  const id = adminOrder[adminIndex];
+  if (!id || !adminObjects[id]) {
+    info.textContent = 'No movable object selected';
+    return;
+  }
+  const o = adminObjects[id].object3d.position;
+  info.textContent = `${id.toUpperCase()}  X:${o.x.toFixed(1)} Z:${o.z.toFixed(1)} Y:${o.y.toFixed(1)}`;
+}
+function setAdminMode(v) {
+  adminMode = !!v;
+  refreshAdminInfo();
+}
+function selectAdmin(step) {
+  if (!adminOrder.length) return;
+  adminIndex = (adminIndex + step + adminOrder.length) % adminOrder.length;
+  refreshAdminInfo();
+}
+function nudgeAdmin(dx=0,dz=0,dy=0,dry=0) {
+  const id = adminOrder[adminIndex];
+  if (!id || !adminObjects[id]) return;
+  const obj = adminObjects[id].object3d;
+  obj.position.x += dx;
+  obj.position.z += dz;
+  obj.position.y = Math.max(0, obj.position.y + dy);
+  obj.rotation.y += dry;
+  syncInteractAnchors();
+  refreshAdminInfo();
+}
+function collectLayout() {
+  const out = {};
+  for (const id of adminOrder) {
+    const obj = adminObjects[id].object3d;
+    out[id] = {
+      x:+obj.position.x.toFixed(3),
+      y:+obj.position.y.toFixed(3),
+      z:+obj.position.z.toFixed(3),
+      ry:+obj.rotation.y.toFixed(3)
+    };
+  }
+  return out;
+}
+function applyLayout(layout) {
+  if (!layout) return;
+  for (const id of Object.keys(layout)) {
+    if (!adminObjects[id]) continue;
+    const obj = adminObjects[id].object3d;
+    const d = layout[id];
+    if (typeof d.x === 'number') obj.position.x = d.x;
+    if (typeof d.y === 'number') obj.position.y = d.y;
+    if (typeof d.z === 'number') obj.position.z = d.z;
+    if (typeof d.ry === 'number') obj.rotation.y = d.ry;
+  }
+  syncInteractAnchors();
+  refreshAdminInfo();
+}
+function saveLayout() {
+  const layout = collectLayout();
+  wsSend({ type:'layout_save', room: roomId, data: layout });
+  addChat('System', '*Layout saved*', '#7adf9a');
+}
+function syncInteractAnchors() {
+  for (const it of INTERACTS) {
+    if (!it.anchorId || !adminObjects[it.anchorId]) continue;
+    const obj = adminObjects[it.anchorId].object3d;
+    it.x = obj.position.x + (it.offsetX || 0);
+    it.z = obj.position.z + (it.offsetZ || 0);
+  }
+}
 
 function buildCustomRoom() {
   const floor = new THREE.Mesh(
@@ -640,6 +777,7 @@ function buildCustomRoom() {
   const couchA = roundedBox(8.8, 1.1, 1.8, couchColor, 0.78, 0.06);
   couchA.position.set(-11.5, 0.95, 5.8);
   roomGroup.add(couchA);
+  registerAdminObject('lounge_zone', couchA, { interactType:'lounge' });
   const couchB = roundedBox(1.8, 1.1, 5.4, couchColor, 0.78, 0.06);
   couchB.position.set(-15.1, 0.95, 8.2);
   roomGroup.add(couchB);
@@ -655,6 +793,7 @@ function buildCustomRoom() {
   const barCounter = roundedBox(10.4, 1.15, 2.2, 0x111317, 0.22, 0.75);
   barCounter.position.set(-15.3, 0.95, -7.3);
   roomGroup.add(barCounter);
+  registerAdminObject('bar', barCounter, { interactType:'coffee' });
 
   const barTop = box(10.8, 0.14, 2.4, 0x3a2f29, 0.2, 0.35);
   barTop.position.set(-15.3, 1.56, -7.3);
@@ -693,6 +832,7 @@ function buildCustomRoom() {
   const warBase = roundedBox(8.5, 0.85, 4.5, 0x101216, 0.28, 0.75);
   warBase.position.set(6.5, 1.1, 5.1);
   roomGroup.add(warBase);
+  registerAdminObject('war_table', warBase, { interactType:'table' });
 
   const tableDisplayTex = makeLabelTexture('WAR TABLE', 'TRACK THE ROOM', '#7adf9a', '#07101a');
   const dispMat = new THREE.MeshBasicMaterial({ map: tableDisplayTex });
@@ -722,6 +862,7 @@ function buildCustomRoom() {
   const fifaFrame = box(7.6, 4.3, 0.24, 0x11161d, 0.25, 0.82);
   fifaFrame.position.set(14.6, 4.0, -4.4);
   roomGroup.add(fifaFrame);
+  registerAdminObject('fifa_zone', fifaFrame, { interactType:'fifa' });
   fifaScreenMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(6.8, 3.75),
     new THREE.MeshBasicMaterial({ map: fifaScreenTex })
@@ -747,6 +888,7 @@ function buildCustomRoom() {
   const snakeFrame = box(4.8, 5.8, 1.6, 0x111111, 0.42, 0.55);
   snakeFrame.position.set(17.6, 3.0, 7.8);
   roomGroup.add(snakeFrame);
+  registerAdminObject('snake_zone', snakeFrame, { interactType:'arcade' });
 
   snakeWallMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(3.5, 3.5),
@@ -774,6 +916,7 @@ function buildCustomRoom() {
   const hoopPole = box(0.25, 5.5, 0.25, 0x1a1c20, 0.55, 0.65);
   hoopPole.position.set(19.7, 2.75, 10.4);
   roomGroup.add(hoopPole);
+  registerAdminObject('basketball_zone', hoopPole, { interactType:'basketball' });
 
   const hoopBoard = box(1.9, 1.2, 0.12, 0xf2f2f2, 0.22, 0.05);
   hoopBoard.position.set(18.95, 5.6, 10.4);
@@ -799,6 +942,7 @@ function buildCustomRoom() {
   const safeBody = roundedBox(2.2, 2.2, 2.1, 0x111418, 0.3, 0.75);
   safeBody.position.set(-17.1, 1.15, 11.4);
   roomGroup.add(safeBody);
+  registerAdminObject('money_zone', safeBody, { interactType:'money' });
 
   safeDoor = box(0.18, 1.6, 1.4, 0x1b1f24, 0.26, 0.84);
   safeDoor.position.set(-16.03, 1.15, 11.4);
@@ -895,6 +1039,7 @@ const PLAYER_RADIUS = 0.42;
 
 try {
   buildCustomRoom();
+  syncInteractAnchors();
 } catch (err) {
   showFatal(err && err.stack ? err.stack : err);
 }
@@ -905,14 +1050,14 @@ const BOUNDS = { minX: -21.2, maxX: 21.2, minZ: -14.0, maxZ: 14.0 };
 
 const INTERACTS = [
   { type: 'whiteboard', x: 12.5,  z: -11.7, r: 4.4, label: 'PRESENTATION WALL ✏️' },
-  { type: 'table',      x: 6.5,   z: 5.1,   r: 4.0, label: 'WAR TABLE 🧠' },
-  { type: 'lounge',     x: -11.6, z: 8.2,   r: 4.0, label: 'LOUNGE 🛋️' },
-  { type: 'arcade',     x: 17.2,  z: 7.9,   r: 3.2, label: 'PLAY SNAKE 🎮' },
+  { type: 'table',      x: 6.5,   z: 5.1,   r: 4.0, label: 'WAR TABLE 🧠', anchorId:'war_table' },
+  { type: 'lounge',     x: -11.6, z: 8.2,   r: 4.0, label: 'LOUNGE 🛋️', anchorId:'lounge_zone', offsetX:0.2, offsetZ:2.4 },
+  { type: 'arcade',     x: 17.2,  z: 7.9,   r: 3.2, label: 'PLAY SNAKE 🎮', anchorId:'snake_zone', offsetX:0, offsetZ:0.2 },
   { type: 'ttt',        x: 16.3,  z: 1.8,   r: 3.2, label: 'TIC TAC TOE ✖️' },
-  { type: 'coffee',     x: -14.0, z: -7.1,  r: 4.2, label: 'BAR / COFFEE ☕' },
-  { type: 'basketball', x: 16.0,  z: 10.6,  r: 3.8, label: 'BASKETBALL 🏀' },
-  { type: 'fifa',       x: 14.6,  z: -3.8,  r: 3.6, label: 'PS5 FIFA ⚽' },
-  { type: 'money',      x: -16.0, z: 12.0,  r: 3.0, label: 'SAFE & CASH 💰' },
+  { type: 'coffee',     x: -14.0, z: -7.1,  r: 4.2, label: 'BAR / COFFEE ☕', anchorId:'bar', offsetX:1.4, offsetZ:0.2 },
+  { type: 'basketball', x: 16.0,  z: 10.6,  r: 3.8, label: 'BASKETBALL 🏀', anchorId:'basketball_zone', offsetX:-2.4, offsetZ:0 },
+  { type: 'fifa',       x: 14.6,  z: -3.8,  r: 3.6, label: 'PS5 FIFA ⚽', anchorId:'fifa_zone', offsetX:0, offsetZ:2.8 },
+  { type: 'money',      x: -16.0, z: 12.0,  r: 3.0, label: 'SAFE & CASH 💰', anchorId:'money_zone', offsetX:1.1, offsetZ:1.0 },
 ];
 
 // ==================== CHARACTER BUILDER ====================
@@ -1034,7 +1179,7 @@ camera.position.set(0, 6.2, 18);
 const remotes = new Map();
 
 // ==================== WEBSOCKET ====================
-let ws = null, myId = null, roomId = 'woys-room';
+let ws = null, myId = null, roomId = 'vibe-room';
 let wsConnected = false, reconnectTimer = null;
 const roomBadge = document.getElementById('room-badge');
 const connBadge = document.getElementById('conn-badge');
@@ -1046,7 +1191,7 @@ function setConn(state) {
 }
 
 function connectWS(rid) {
-  roomId = (rid||'').trim() || 'woys-room';
+  roomId = (rid||'').trim() || 'vibe-room';
   roomBadge.textContent = 'ROOM: ' + roomId.toUpperCase().slice(0,12);
   setConn('connecting');
   try { ws = new WebSocket(WS_URL); } catch(e) { setConn('offline'); scheduleReconnect(); return; }
@@ -1074,6 +1219,7 @@ function handleServerMsg(msg) {
     case 'welcome':
       myId = msg.id;
       for (const p of msg.players) addRemote(p.id, p.name, p.preset, p.pos);
+      wsSend({ type:'layout_load', room: roomId });
       break;
     case 'peer-join':
       addRemote(msg.id, msg.name, msg.preset, null);
@@ -1096,6 +1242,9 @@ function handleServerMsg(msg) {
     case 'chat': addChat(msg.data.name||'friend', msg.data.text, '#e8b96a'); break;
     case 'draw': applyRemoteDraw(msg.data); break;
     case 'clear': paintBoardLocal(); break;
+    case 'layout_load':
+      applyLayout(msg.data || msg.layout || msg.objects);
+      break;
   }
 }
 
@@ -1237,6 +1386,22 @@ document.getElementById('btn-view').addEventListener('touchstart', e => { e.prev
 document.getElementById('btn-mic').addEventListener('touchstart', e => { e.preventDefault(); toggleMic(); }, { passive:false });
 document.getElementById('view-badge').addEventListener('click', toggleView);
 document.getElementById('mic-badge').addEventListener('click', toggleMic);
+document.getElementById('admin-badge').addEventListener('click', () => {
+  if ((player.name || '').toLowerCase() !== 'pax') return;
+  setAdminMode(!adminMode);
+});
+document.getElementById('admin-prev').addEventListener('click', () => selectAdmin(-1));
+document.getElementById('admin-next').addEventListener('click', () => selectAdmin(1));
+document.getElementById('admin-left').addEventListener('click', () => nudgeAdmin(-0.4,0,0,0));
+document.getElementById('admin-right').addEventListener('click', () => nudgeAdmin(0.4,0,0,0));
+document.getElementById('admin-up').addEventListener('click', () => nudgeAdmin(0,-0.4,0,0));
+document.getElementById('admin-down').addEventListener('click', () => nudgeAdmin(0,0.4,0,0));
+document.getElementById('admin-rotl').addEventListener('click', () => nudgeAdmin(0,0,0,-0.12));
+document.getElementById('admin-rotr').addEventListener('click', () => nudgeAdmin(0,0,0,0.12));
+document.getElementById('admin-raise').addEventListener('click', () => nudgeAdmin(0,0,0.15,0));
+document.getElementById('admin-lower').addEventListener('click', () => nudgeAdmin(0,0,-0.15,0));
+document.getElementById('admin-save').addEventListener('click', saveLayout);
+document.getElementById('admin-exit').addEventListener('click', () => setAdminMode(false));
 
 // ==================== PANELS ====================
 function anyPanelOpen() { return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block'); }
@@ -1267,7 +1432,7 @@ function tryInteract() {
   else if (i.type === 'ttt') { openPanel('ttt-panel'); resetTTT(); }
   else if (i.type === 'coffee') addChat('System', '*' + player.name + ' orders an overpriced coffee ☕*', '#e8b96a');
   else if (i.type === 'lounge') addChat('System', '*' + player.name + ' sinks into the couch 🛋️*', '#8ac8e8');
-  else if (i.type === 'table') addChat('System', '*' + player.name + ' takes over the war table 💼*', '#7adf9a');
+  else if (i.type === 'table') { document.getElementById('war-count').textContent = String(remotes.size + 1); openPanel('war-panel'); }
   else if (i.type === 'basketball') openPanel('basketball-panel');
   else if (i.type === 'fifa') openPanel('fifa-panel');
   else if (i.type === 'money') addChat('System', '*' + player.name + ' admires the cash pile like a true menace 💰*', '#7adf9a');
@@ -1291,7 +1456,7 @@ function canStand(x, z) {
 }
 
 function updatePlayer(dt, t) {
-  if (anyPanelOpen()) { player._moving = false; return; }
+  if (anyPanelOpen() || adminMode) { player._moving = false; return; }
   const sp = keys['shift'] ? 9 : 5.4;
   fwd.set(Math.sin(player.yaw), 0, Math.cos(player.yaw));
   rgt.set(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
@@ -1439,7 +1604,7 @@ function addChat(name, text, color) {
   chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight;
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-addChat('System','Welcome to the woys Room. Share the room code.','#e8b96a');
+addChat('System','Welcome to the Vibe Room. Share the room code.','#e8b96a');
 addChat('System','Tap 🎤 to enable voice chat.','#e8b96a');
 chatInput.addEventListener('keydown', e => {
   if (e.key==='Enter' && chatInput.value.trim()) {
@@ -1538,6 +1703,7 @@ function startArcade() {
   snake=[{x:8,y:8},{x:7,y:8},{x:6,y:8}]; snakeDir={x:1,y:0}; snakeFood={x:12,y:8}; snakeScore=0;
   document.getElementById('arcade-score').textContent='SCORE: 0';
   snakeLoop=setInterval(tickSnake,140); drawSnake();
+refreshAdminInfo();
 }
 function tickSnake() {
   if(document.getElementById('arcade-panel').style.display!=='block'){clearInterval(snakeLoop);return;}
@@ -1556,6 +1722,7 @@ function tickSnake() {
   if(head.x===snakeFood.x&&head.y===snakeFood.y){snakeScore++;document.getElementById('arcade-score').textContent='SCORE: '+snakeScore;snakeFood={x:Math.floor(Math.random()*16),y:Math.floor(Math.random()*16)};}
   else snake.pop();
   drawSnake();
+refreshAdminInfo();
 }
 function drawSnake(){
   if (!snake || !snakeFood) return;
@@ -1581,6 +1748,7 @@ arcadeCanvas.addEventListener('touchstart',e=>{
   e.preventDefault();
 },{passive:false});
 drawSnake();
+refreshAdminInfo();
 
 // ==================== FINISH LOADING → SHOW START ====================
 function finishLoading() {
@@ -1606,13 +1774,14 @@ document.getElementById('begin').onclick = () => {
   player.group.position.copy(pos);
   scene.add(player.group);
 
-  const rid = document.getElementById('room-input').value.trim() || 'woys-room';
+  const rid = document.getElementById('room-input').value.trim() || 'vibe-room';
   document.getElementById('start').style.display = 'none';
   document.getElementById('hud').style.display = 'block';
   document.getElementById('top-right').style.display = 'flex';
   document.getElementById('crosshair').style.display = 'block';
   if (!isMobile()) renderer.domElement.requestPointerLock();
   connectWS(rid);
+  refreshAdminInfo();
 };
 
 // ==================== REMOTES ====================
