@@ -117,36 +117,27 @@ canvas { display: block; }
 /* Host mode */
 #host-badge { display:none; }
 #host-panel {
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:min(520px,95vw); max-height:90vh; overflow:auto; z-index:25; display:none;
-  background:rgba(8,10,16,0.92); border:1px solid #c89b4a; border-radius:10px;
-  box-shadow:0 20px 60px rgba(0,0,0,0.7); backdrop-filter: blur(10px); padding:16px;
+  position:absolute; right:14px; top:140px; z-index:25; display:none;
+  width:min(360px,92vw); background:rgba(9,10,16,0.94); border:1px solid #c89b4a;
+  border-radius:12px; padding:12px; box-shadow:0 12px 34px rgba(0,0,0,0.55); backdrop-filter: blur(10px);
 }
-#host-panel h2 { color:#e8b96a; font:400 13px/1 monospace; letter-spacing:3px; text-align:center; margin-bottom:12px; }
-#host-panel .close-host { position:absolute; top:8px; right:12px; color:#e8b96a; background:none; border:none; font-size:24px; cursor:pointer; }
-.host-section { border:1px solid rgba(200,155,74,0.35); border-radius:8px; padding:12px; margin-bottom:12px; background:rgba(255,255,255,0.02); }
-.host-section h3 { color:#e8b96a; font:700 11px/1 monospace; letter-spacing:2px; margin-bottom:8px; }
-.host-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-.host-grid button, #host-panel input {
-  background:#151922; color:#f0dfbf; border:1px solid rgba(200,155,74,0.45); border-radius:8px;
-  min-height:42px; padding:10px 12px; font:700 12px monospace;
+#host-panel h3 { color:#e8b96a; font:700 13px/1.2 monospace; letter-spacing:2px; text-align:center; margin-bottom:10px; }
+#host-close {
+  position:absolute; top:6px; right:10px; background:none; border:none; color:#e8b96a;
+  font-size:22px; cursor:pointer; line-height:1;
 }
-.host-grid button:active { background:#c89b4a; color:#111; }
-#host-media-url { width:100%; }
-#host-status { color:#d8c8a8; font:11px/1.5 monospace; }
-#media-wall-portal {
-  position:fixed; z-index:12; display:none; pointer-events:none;
-  border:2px solid rgba(232,185,106,0.7); border-radius:8px; overflow:hidden;
-  box-shadow:0 0 30px rgba(0,0,0,0.5), 0 0 18px rgba(232,185,106,0.2);
-  background:#000;
+#host-panel .host-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:10px; }
+#host-panel button, #host-panel input {
+  background:#161821; color:#e8d8b0; border:1px solid #3a4a66; border-radius:8px; padding:10px;
+  font:12px/1.2 monospace;
 }
-#media-wall-portal iframe { width:100%; height:100%; border:0; }
-#now-playing {
-  position:absolute; left:50%; top:78px; transform:translateX(-50%);
-  z-index:8; display:none; background:rgba(0,0,0,0.55); border:1px solid rgba(200,155,74,0.5);
-  border-radius:8px; color:#f2dfba; padding:8px 12px; font:12px/1.4 monospace; backdrop-filter:blur(8px);
-  max-width:min(520px,86vw); text-align:center;
-}
+#host-panel button { cursor:pointer; }
+#host-panel button:active { transform:translateY(1px); }
+#host-panel .host-accent { border-color:#c89b4a; color:#e8b96a; }
+#host-media-url { width:100%; margin-bottom:8px; }
+#host-panel .host-row { display:flex; gap:8px; margin-bottom:8px; }
+#host-panel .host-info { color:#b8b2a5; font:11px/1.5 monospace; min-height:32px; margin-top:4px; text-align:center; }
+
 
 </style>
 </head>
@@ -253,39 +244,6 @@ canvas { display: block; }
     <button id="ball-reset">RESET</button>
   </div>
 
-
-  <div id="host-panel">
-    <button class="close-host" id="host-close">✕</button>
-    <h2>◆ HOST MODE ◆</h2>
-    <div class="host-section">
-      <h3>SCENE PRESETS</h3>
-      <div class="host-grid">
-        <button data-vibe="chill" class="host-vibe-btn">CHILL</button>
-        <button data-vibe="war" class="host-vibe-btn">WAR ROOM</button>
-        <button data-vibe="afterhours" class="host-vibe-btn">AFTER HOURS</button>
-        <button data-vibe="gamenight" class="host-vibe-btn">GAME NIGHT</button>
-      </div>
-    </div>
-    <div class="host-section">
-      <h3>MEDIA WALL</h3>
-      <input id="host-media-url" placeholder="Paste YouTube URL or video ID">
-      <div class="host-grid" style="margin-top:8px;">
-        <button id="host-media-load">LOAD TO WALL</button>
-        <button id="host-media-clear">CLEAR WALL</button>
-      </div>
-      <div id="host-status">Wall video appears directly on the in-room screen. Audio depends on browser autoplay policy, because browsers are petty tyrants.</div>
-    </div>
-    <div class="host-section">
-      <h3>EVENTS</h3>
-      <div class="host-grid">
-        <button id="host-money">MONEY RAIN</button>
-        <button id="host-pulse">SCULPTURE PULSE</button>
-      </div>
-    </div>
-  </div>
-  <div id="media-wall-portal"></div>
-  <div id="now-playing"></div>
-
   <div id="admin-panel">
     <div class="admin-title">ADMIN MOVE MODE</div>
     <div id="admin-info">Select object</div>
@@ -307,6 +265,25 @@ canvas { display: block; }
       <button id="admin-raise">＋Y</button>
       <button id="admin-lower">－Y</button>
     </div>
+  </div>
+
+  
+  <div id="host-panel">
+    <button id="host-close">✕</button>
+    <h3>◆ HOST CONSOLE ◆</h3>
+    <div class="host-grid">
+      <button class="host-accent" data-vibe="chill">CHILL</button>
+      <button class="host-accent" data-vibe="war">WAR ROOM</button>
+      <button class="host-accent" data-vibe="after">AFTER HOURS</button>
+      <button class="host-accent" data-vibe="game">GAME NIGHT</button>
+    </div>
+    <div class="host-row">
+      <button id="host-money-rain" style="flex:1;">MONEY RAIN</button>
+      <button id="host-pulse" style="flex:1;">PULSE</button>
+    </div>
+    <div class="host-info" id="host-info">Pax can control room vibe and trigger room events from here.</div>
+  </div>
+    <iframe id="media-wall-frame" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
   </div>
 
   <div id="mobile-ctrls">
@@ -385,20 +362,27 @@ CHARS.forEach((c, i) => {
 
 // ==================== THREE CORE ====================
 const MOBILE = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900;
+const HQ = !MOBILE;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x07080f);
-scene.fog = new THREE.FogExp2(0x07080f, MOBILE ? 0.0038 : 0.0058);
+scene.background = new THREE.Color(0x0a0d14);
+scene.fog = new THREE.FogExp2(0x0a0d14, MOBILE ? 0.0022 : 0.0035);
 
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 240);
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-renderer.setPixelRatio(MOBILE ? Math.min(window.devicePixelRatio || 1, 1.2) : Math.min(window.devicePixelRatio, 1.75));
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  powerPreference: 'high-performance'
+});
+renderer.setPixelRatio(
+  MOBILE ? Math.min(window.devicePixelRatio || 1, 1.15)
+         : Math.min(window.devicePixelRatio, 2)
+);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.35;
+renderer.toneMappingExposure = MOBILE ? 1.75 : 1.95;
 document.getElementById('game').appendChild(renderer.domElement);
 
 // ==================== HELPERS ====================
@@ -659,19 +643,93 @@ let centerSculpture = null;
 let tableTopDisplay = null;
 let tableInteractAnchor = new THREE.Vector3(0,0,0);
 
+
+const HOST_PREFIX = '__HOST__';
 const hostState = {
   vibe: 'chill',
-  mediaId: '',
-  mediaTitle: '',
-  lastEvent: ''
+  event: null
 };
-let mediaWallSurface = null;
-let mediaWallPortal = null;
-let mediaWallTitle = null;
-let mediaWallCurrentId = '';
+let hostConsoleGroup = null;
+let activeVibe = 'chill';
+let eventPulse = 0;
 let moneyRain = [];
-let pulseFx = 0;
+const moneyRainGroup = new THREE.Group();
+scene.add(moneyRainGroup);
 
+function broadcastHostEvent(evt) {
+  if (!wsConnected) return;
+  wsSend({ type:'chat', data:{ name:'host', text: HOST_PREFIX + JSON.stringify(evt) } });
+}
+function applyVibe(mode) {
+  activeVibe = mode;
+  if (mode === 'war') {
+    renderer.toneMappingExposure = MOBILE ? 1.55 : 1.75;
+    scene.fog.density = MOBILE ? 0.0028 : 0.0042;
+    scene.background.setHex(0x0b1117);
+    key.color.setHex(0xf3f0dc);
+    purpleFill.color.setHex(0x3f66ff);
+    goldFill.color.setHex(0xe8b96a);
+  } else if (mode === 'after') {
+    renderer.toneMappingExposure = MOBILE ? 1.8 : 2.05;
+    scene.fog.density = MOBILE ? 0.0018 : 0.003;
+    scene.background.setHex(0x140a16);
+    key.color.setHex(0xfff0da);
+    purpleFill.color.setHex(0x9a48ff);
+    goldFill.color.setHex(0xff9d66);
+  } else if (mode === 'game') {
+    renderer.toneMappingExposure = MOBILE ? 1.82 : 2.1;
+    scene.fog.density = MOBILE ? 0.0019 : 0.0032;
+    scene.background.setHex(0x09101b);
+    key.color.setHex(0xf7f1df);
+    purpleFill.color.setHex(0x4c77ff);
+    goldFill.color.setHex(0xffcc64);
+  } else {
+    renderer.toneMappingExposure = MOBILE ? 1.75 : 1.95;
+    scene.fog.density = MOBILE ? 0.0022 : 0.0035;
+    scene.background.setHex(0x0a0d14);
+    key.color.setHex(0xfff4d8);
+    purpleFill.color.setHex(0x5e47ff);
+    goldFill.color.setHex(0xe8b96a);
+  }
+}
+function applyHostEvent(evt, local=false) {
+  if (!evt || !evt.kind) return;
+  if (evt.kind === 'vibe') {
+    hostState.vibe = evt.mode;
+    applyVibe(evt.mode);
+    if (local) document.getElementById('host-info').textContent = 'Vibe set to ' + String(evt.mode).toUpperCase();
+  } else if (evt.kind === 'pulse') {
+    eventPulse = 1.0;
+    if (local) document.getElementById('host-info').textContent = 'Center pulse triggered.';
+  } else if (evt.kind === 'money') {
+    spawnMoneyBurst();
+    if (local) document.getElementById('host-info').textContent = 'Money rain triggered.';
+  }
+}
+function spawnMoneyBurst() {
+  for (let i = 0; i < 48; i++) {
+    const bill = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.65, 0.32),
+      new THREE.MeshBasicMaterial({ color: 0x7fdc8c, side: THREE.DoubleSide, transparent: true, opacity: 0.95 })
+    );
+    bill.position.set((Math.random()-0.5)*14, 8 + Math.random()*5, -1 + (Math.random()-0.5)*10);
+    bill.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    moneyRainGroup.add(bill);
+    moneyRain.push({
+      mesh: bill,
+      x: bill.position.x,
+      y: bill.position.y,
+      z: bill.position.z,
+      vy: -2.4 - Math.random()*2.6,
+      vx: (Math.random()-0.5)*0.8,
+      vz: (Math.random()-0.5)*0.5,
+      rx: (Math.random()-0.5)*4,
+      ry: (Math.random()-0.5)*4,
+      rz: (Math.random()-0.5)*4,
+      life: 2.8 + Math.random()*1.8
+    });
+  }
+}
 
 const adminObjects = {};
 const adminOrder = [];
@@ -774,11 +832,24 @@ function syncInteractAnchors() {
 function buildCustomRoom() {
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(44, 30),
-    new THREE.MeshStandardMaterial({ map: marbleTex, roughness: 0.2, metalness: 0.38, color: 0xffffff })
+    new THREE.MeshStandardMaterial({
+      map: marbleTex,
+      roughness: MOBILE ? 0.24 : 0.16,
+      metalness: MOBILE ? 0.28 : 0.42,
+      color: 0xffffff
+    })
   );
   floor.rotation.x = -Math.PI/2;
   floor.receiveShadow = true;
   roomGroup.add(floor);
+
+  const entryGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(10, 4.5),
+    new THREE.MeshBasicMaterial({ color: 0x173044, transparent: true, opacity: 0.18 })
+  );
+  entryGlow.rotation.x = -Math.PI/2;
+  entryGlow.position.set(0, 0.03, 12.5);
+  roomGroup.add(entryGlow);
 
   const underGlow = new THREE.Mesh(
     new THREE.PlaneGeometry(40, 26),
@@ -968,9 +1039,36 @@ function buildCustomRoom() {
   boardWallMesh.position.set(12.5, 4.2, -13.62);
   roomGroup.add(boardWallMesh);
 
-  const boardGlow = box(9.4, 0.05, 0.28, 0xe8b96a, 0.1, 0.6);
+  const boardGlow = box(9.4, 0.05, 0.28, 0xe8b96a, 0.05, 0.8);
   boardGlow.position.set(12.5, 1.32, -13.55);
   roomGroup.add(boardGlow);
+
+  // host mode uses safe events only in phase 1
+  const mediaFrame = box(10.5, 5.8, 0.24, 0x2b313a, 0.16, 0.82);
+  mediaFrame.position.set(0.0, 4.4, 14.6);
+  roomGroup.add(mediaFrame);
+  mediaWallMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(9.6, 5.1),
+    new THREE.MeshBasicMaterial({ map: mediaWallTex })
+  );
+  mediaWallMesh.position.set(0.0, 4.4, 14.46);
+  mediaWallMesh.rotation.y = Math.PI;
+  roomGroup.add(mediaWallMesh);
+
+  const hostConsole = new THREE.Group();
+  hostConsole.position.set(-3.0, 0, -10.2);
+  roomGroup.add(hostConsole);
+  hostConsoleGroup = hostConsole;
+  const consolePedestal = roundedBox(2.2, 1.15, 1.4, 0x2b313a, 0.2, 0.78);
+  consolePedestal.position.set(0, 0.7, 0);
+  hostConsole.add(consolePedestal);
+  const consoleScreen = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.8, 1.0),
+    new THREE.MeshBasicMaterial({ map: makeLabelTexture('HOST', 'ROOM CONTROL', '#e8b96a', '#08111b') })
+  );
+  consoleScreen.position.set(0, 1.85, 0.72);
+  hostConsole.add(consoleScreen);
+  registerAdminObject('host_console', hostConsole);
 
   // gaming zone
   const fifaGroup = new THREE.Group();
@@ -1131,34 +1229,6 @@ function buildCustomRoom() {
   }
 
   // visible interact landmarks
-  const hostConsole = new THREE.Group();
-  hostConsole.position.set(3.4, 0, -10.8);
-  roomGroup.add(hostConsole);
-  const hcBase = roundedBox(1.7, 1.0, 1.2, 0x2f3540, 0.18, 0.8);
-  hcBase.position.set(0, 0.55, 0);
-  hostConsole.add(hcBase);
-  const hcScreen = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.1, 0.6),
-    new THREE.MeshBasicMaterial({ map: makeLabelTexture('HOST', 'CONTROL', '#7adf9a', '#08120f') })
-  );
-  hcScreen.position.set(0, 1.0, 0.62);
-  hostConsole.add(hcScreen);
-  registerAdminObject('host_console', hostConsole, { interactType:'host' });
-
-  mediaWallTitle = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.4, 0.8),
-    new THREE.MeshBasicMaterial({ map: makeLabelTexture('MEDIA WALL', 'NO SIGNAL', '#e8b96a', '#0d1018') })
-  );
-  mediaWallTitle.position.set(0, 8.1, -13.55);
-  roomGroup.add(mediaWallTitle);
-
-  mediaWallSurface = new THREE.Mesh(
-    new THREE.PlaneGeometry(8.5, 4.8),
-    new THREE.MeshBasicMaterial({ color: 0x111111 })
-  );
-  mediaWallSurface.position.set(0, 4.8, -13.54);
-  roomGroup.add(mediaWallSurface);
-
   const boardTitle = new THREE.Mesh(
     new THREE.PlaneGeometry(4.8, 0.6),
     new THREE.MeshBasicMaterial({ map: makeLabelTexture('PRESENTATION', 'LIVE BOARD', '#e8b96a', '#161006') })
@@ -1197,16 +1267,49 @@ const PLAYER_RADIUS = 0.42;
 
 try {
   buildCustomRoom();
+  
+const moneyBillPool = [];
+function ensureMoneyPool() {
+  if (moneyBillPool.length) return;
+  for (let i = 0; i < 32; i++) {
+    const bill = box(0.55, 0.03, 0.3, 0x62b56b, 0.55, 0.04);
+    bill.visible = false;
+    roomGroup.add(bill);
+    moneyBillPool.push(bill);
+  }
+}
+ensureMoneyPool();
+
   roomGroup.traverse((obj) => {
     if (!obj.material) return;
     const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+
     mats.forEach((m) => {
-      if (m && m.color && !m.map && m.type !== 'MeshBasicMaterial') {
-        if (m.color.getHexString() === '111111' || m.color.getHexString() === '11161d' || m.color.getHexString() === '0f1115') {
-          m.color.setHex(0x2b313a);
+      if (!m) return;
+
+      if (m.color && !m.map && m.type !== 'MeshBasicMaterial') {
+        const darks = ['111111', '11161d', '0f1115', '101216', '171d26', '12151b', '1f242c', '252a32'];
+        if (darks.includes(m.color.getHexString())) {
+          m.color.setHex(0x3b4452);
         }
       }
-      if (m && 'roughness' in m && m.roughness > 0.82) m.roughness = 0.72;
+
+      if ('roughness' in m) {
+        m.roughness = Math.min(m.roughness, 0.58);
+      }
+
+      if ('metalness' in m) {
+        m.metalness = Math.max(m.metalness || 0, 0.18);
+      }
+
+      if ('envMapIntensity' in m) {
+        m.envMapIntensity = HQ ? 1.2 : 0.8;
+      }
+
+      if ('emissive' in m && m.emissive && !m.map) {
+        m.emissive.setHex(0x111111);
+        m.emissiveIntensity = 0.18;
+      }
     });
   });
 } catch (err) {
@@ -1219,7 +1322,6 @@ const BOUNDS = { minX: -21.2, maxX: 21.2, minZ: -14.0, maxZ: 14.0 };
 
 const INTERACTS = [
   { type: 'whiteboard', x: 12.5,  z: -11.7, r: 4.4, label: 'PRESENTATION WALL ✏️' },
-  { type: 'host',       x: 3.4,   z: -10.8, r: 2.6, label: 'HOST CONSOLE 👑', anchorId:'host_console' },
   { type: 'table',      x: 6.5,   z: 5.1,   r: 4.0, label: 'WAR TABLE 🧠', anchorId:'war_table' },
   { type: 'lounge',     x: -11.6, z: 8.2,   r: 4.0, label: 'LOUNGE 🛋️', anchorId:'lounge_zone', offsetX:0.2, offsetZ:2.4 },
   { type: 'arcade',     x: 17.2,  z: 7.9,   r: 3.2, label: 'PLAY SNAKE 🎮', anchorId:'snake_zone', offsetX:0, offsetZ:0.2 },
@@ -1228,6 +1330,8 @@ const INTERACTS = [
   { type: 'basketball', x: 16.0,  z: 10.6,  r: 3.8, label: 'BASKETBALL 🏀', anchorId:'basketball_zone', offsetX:-2.4, offsetZ:0 },
   { type: 'fifa',       x: 14.6,  z: -3.8,  r: 3.6, label: 'PS5 FIFA ⚽', anchorId:'fifa_zone', offsetX:0, offsetZ:2.8 },
   { type: 'money',      x: -16.0, z: 12.0,  r: 3.0, label: 'SAFE & CASH 💰', anchorId:'money_zone', offsetX:1.1, offsetZ:1.0 },
+  { type: 'hostconsole', x: -3.0, z: -10.2, r: 2.6, label: 'HOST CONSOLE 🎛️', anchorId:'host_console' },
+  { type: 'mediawall', x: 0.0, z: 12.0, r: 4.2, label: 'MEDIA WALL 📺' },
 ];
 
 syncInteractAnchors();
@@ -1355,144 +1459,6 @@ let ws = null, myId = null, roomId = 'vibe-room';
 let wsConnected = false, reconnectTimer = null;
 const roomBadge = document.getElementById('room-badge');
 const connBadge = document.getElementById('conn-badge');
-const hostBadge = document.getElementById('host-badge');
-const hostPanel = document.getElementById('host-panel');
-const mediaWallPortal = document.getElementById('media-wall-portal');
-const nowPlaying = document.getElementById('now-playing');
-
-
-function isHostUser() { return (player.name || '').toLowerCase() === 'pax'; }
-function toggleHostPanel(force) {
-  if (!isHostUser()) return;
-  const show = typeof force === 'boolean' ? force : hostPanel.style.display !== 'block';
-  hostPanel.style.display = show ? 'block' : 'none';
-  if (show && document.pointerLockElement) document.exitPointerLock();
-}
-function extractYouTubeId(input) {
-  const s = (input || '').trim();
-  if (!s) return '';
-  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
-  const m = s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
-  return m ? m[1] : '';
-}
-function broadcastHostState() {
-  wsSend({ type:'host_state', room: roomId, data: hostState });
-}
-function broadcastHostEvent(name, extra={}) {
-  wsSend({ type:'host_event', room: roomId, data: Object.assign({ event:name }, extra) });
-}
-function applyVibe(vibe, silent=false) {
-  hostState.vibe = vibe;
-  if (vibe === 'chill') {
-    scene.background.set(0x0a0d14);
-    scene.fog.color.set(0x0a0d14);
-    renderer.toneMappingExposure = MOBILE ? 1.75 : 1.95;
-    key.intensity = MOBILE ? 1.45 : 1.35;
-    purpleFill.intensity = MOBILE ? 1.4 : 2.0;
-    goldFill.intensity = MOBILE ? 1.3 : 1.7;
-    gamingFill.intensity = MOBILE ? 1.1 : 1.4;
-    courtFill.intensity = MOBILE ? 0.9 : 1.2;
-  } else if (vibe === 'war') {
-    scene.background.set(0x0e1215);
-    scene.fog.color.set(0x0e1215);
-    renderer.toneMappingExposure = MOBILE ? 1.6 : 1.78;
-    key.intensity = MOBILE ? 1.2 : 1.12;
-    purpleFill.intensity = 0.4;
-    goldFill.intensity = MOBILE ? 1.9 : 2.2;
-    gamingFill.intensity = 0.5;
-    courtFill.intensity = 0.6;
-  } else if (vibe === 'afterhours') {
-    scene.background.set(0x090816);
-    scene.fog.color.set(0x090816);
-    renderer.toneMappingExposure = MOBILE ? 1.72 : 1.88;
-    key.intensity = 0.95;
-    purpleFill.intensity = MOBILE ? 2.0 : 2.8;
-    goldFill.intensity = 1.0;
-    gamingFill.intensity = MOBILE ? 1.5 : 2.1;
-    courtFill.intensity = 0.8;
-  } else if (vibe === 'gamenight') {
-    scene.background.set(0x081016);
-    scene.fog.color.set(0x081016);
-    renderer.toneMappingExposure = MOBILE ? 1.82 : 2.02;
-    key.intensity = 1.18;
-    purpleFill.intensity = 1.2;
-    goldFill.intensity = 1.25;
-    gamingFill.intensity = MOBILE ? 2.0 : 2.6;
-    courtFill.intensity = MOBILE ? 1.3 : 1.7;
-  }
-  if (!silent) broadcastHostState();
-}
-function triggerMoneyRain(silent=false) {
-  for (let i = 0; i < (MOBILE ? 22 : 36); i++) {
-    const bill = box(0.46, 0.02, 0.24, 0x62b56b, 0.7, 0.03);
-    bill.position.set((Math.random()-0.5)*18, 9 + Math.random()*4, (Math.random()-0.5)*12);
-    bill.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
-    scene.add(bill);
-    moneyRain.push({ mesh: bill, vy: -(1.8 + Math.random()*1.6), spin:(Math.random()-0.5)*3 });
-  }
-  addChat('System', '*Money rain triggered*', '#7adf9a');
-  if (!silent) broadcastHostEvent('money_rain');
-}
-function updateMoneyRain(dt) {
-  const keep = [];
-  for (const p of moneyRain) {
-    p.mesh.position.y += p.vy * dt;
-    p.mesh.rotation.z += p.spin * dt;
-    p.mesh.rotation.x += 1.5 * dt;
-    if (p.mesh.position.y > -0.2) keep.push(p);
-    else scene.remove(p.mesh);
-  }
-  moneyRain = keep;
-}
-function triggerPulse(silent=false) {
-  pulseFx = 1;
-  addChat('System', '*Center pulse triggered*', '#e8b96a');
-  if (!silent) broadcastHostEvent('pulse');
-}
-function applyMediaWall(mediaId, title='', silent=false) {
-  hostState.mediaId = mediaId || '';
-  hostState.mediaTitle = title || '';
-  mediaWallCurrentId = hostState.mediaId;
-  if (hostState.mediaId) {
-    const titleTex = makeLabelTexture('MEDIA WALL', hostState.mediaTitle || hostState.mediaId, '#e8b96a', '#0d1018');
-    if (mediaWallTitle) {
-      mediaWallTitle.material.map = titleTex;
-      mediaWallTitle.material.needsUpdate = true;
-    }
-    nowPlaying.style.display = 'block';
-    nowPlaying.textContent = 'NOW PLAYING · ' + (hostState.mediaTitle || hostState.mediaId);
-    const embed = `https://www.youtube.com/embed/${hostState.mediaId}?autoplay=1&mute=0&playsinline=1&controls=1&enablejsapi=1&rel=0`;
-    mediaWallPortal.innerHTML = `<iframe allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen src="${embed}"></iframe>`;
-    mediaWallPortal.style.display = 'block';
-  } else {
-    mediaWallPortal.innerHTML = '';
-    mediaWallPortal.style.display = 'none';
-    nowPlaying.style.display = 'none';
-    if (mediaWallTitle) {
-      mediaWallTitle.material.map = makeLabelTexture('MEDIA WALL', 'NO SIGNAL', '#e8b96a', '#0d1018');
-      mediaWallTitle.material.needsUpdate = true;
-    }
-  }
-  if (!silent) broadcastHostState();
-}
-
-
-function updateMediaWallPortal() {
-  if (!mediaWallCurrentId || !mediaWallSurface) return;
-  const center = mediaWallSurface.getWorldPosition(new THREE.Vector3());
-  const width = 8.5, height = 4.8;
-  const p = center.clone().project(camera);
-  if (p.z > 1) { mediaWallPortal.style.display = 'none'; return; }
-  const px = (p.x * 0.5 + 0.5) * window.innerWidth;
-  const py = (-p.y * 0.5 + 0.5) * window.innerHeight;
-  const screenH = Math.max(180, (height / Math.max(1, camera.position.distanceTo(center))) * 950);
-  const screenW = screenH * (width / height);
-  mediaWallPortal.style.left = (px - screenW/2) + 'px';
-  mediaWallPortal.style.top = (py - screenH/2) + 'px';
-  mediaWallPortal.style.width = screenW + 'px';
-  mediaWallPortal.style.height = screenH + 'px';
-  mediaWallPortal.style.display = 'block';
-}
 
 function setConn(state) {
   connBadge.classList.remove('live', 'offline');
@@ -1530,7 +1496,6 @@ function handleServerMsg(msg) {
       myId = msg.id;
       for (const p of msg.players) addRemote(p.id, p.name, p.preset, p.pos);
       wsSend({ type:'layout_load', room: roomId });
-      wsSend({ type:'state_get', room: roomId });
       break;
     case 'peer-join':
       addRemote(msg.id, msg.name, msg.preset, null);
@@ -1550,29 +1515,17 @@ function handleServerMsg(msg) {
       r.lastMoving = msg.data.m;
       break;
     }
-    case 'chat': addChat(msg.data.name||'friend', msg.data.text, '#e8b96a'); break;
+    case 'chat':
+      if (msg.data && typeof msg.data.text === 'string' && msg.data.text.startsWith(HOST_PREFIX)) {
+        try { applyHostEvent(JSON.parse(msg.data.text.slice(HOST_PREFIX.length))); } catch {}
+      } else {
+        addChat(msg.data.name||'friend', msg.data.text, '#e8b96a');
+      }
+      break;
     case 'draw': applyRemoteDraw(msg.data); break;
     case 'clear': paintBoardLocal(); break;
     case 'layout_load':
       applyLayout(msg.data || msg.layout || msg.objects);
-      break;
-    case 'state_sync':
-      if (msg.data && msg.data.hostState) {
-        Object.assign(hostState, msg.data.hostState);
-        if (hostState.vibe) applyVibe(hostState.vibe, true);
-        applyMediaWall(hostState.mediaId || '', hostState.mediaTitle || '', true);
-      }
-      break;
-    case 'host_state':
-      if (msg.data) {
-        Object.assign(hostState, msg.data);
-        if (hostState.vibe) applyVibe(hostState.vibe, true);
-        applyMediaWall(hostState.mediaId || '', hostState.mediaTitle || '', true);
-      }
-      break;
-    case 'host_event':
-      if (msg.data && msg.data.event === 'money_rain') triggerMoneyRain(true);
-      if (msg.data && msg.data.event === 'pulse') triggerPulse(true);
       break;
   }
 }
@@ -1719,6 +1672,33 @@ document.getElementById('admin-badge').addEventListener('click', () => {
   if ((player.name || '').toLowerCase() !== 'pax') return;
   setAdminMode(!adminMode);
 });
+document.getElementById('host-badge').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const p = document.getElementById('host-panel');
+  p.style.display = p.style.display === 'block' ? 'none' : 'block';
+});
+document.getElementById('host-close').addEventListener('click', () => {
+  document.getElementById('host-panel').style.display = 'none';
+});
+document.querySelectorAll('#host-panel [data-vibe]').forEach(btn => btn.addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'vibe', mode: btn.dataset.vibe };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+  document.getElementById('host-info').textContent = 'Vibe set to ' + btn.dataset.vibe.toUpperCase();
+}));
+document.getElementById('host-money-rain').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'money' };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
+document.getElementById('host-pulse').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'pulse' };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
 document.getElementById('admin-prev').addEventListener('click', () => selectAdmin(-1));
 document.getElementById('admin-next').addEventListener('click', () => selectAdmin(1));
 document.getElementById('admin-left').addEventListener('click', () => nudgeAdmin(-0.4,0,0,0));
@@ -1731,30 +1711,10 @@ document.getElementById('admin-raise').addEventListener('click', () => nudgeAdmi
 document.getElementById('admin-lower').addEventListener('click', () => nudgeAdmin(0,0,-0.15,0));
 document.getElementById('admin-save').addEventListener('click', saveLayout);
 document.getElementById('admin-exit').addEventListener('click', () => setAdminMode(false));
-hostBadge.addEventListener('click', () => toggleHostPanel());
-document.getElementById('host-close').addEventListener('click', () => toggleHostPanel(false));
-document.querySelectorAll('.host-vibe-btn').forEach(btn => btn.addEventListener('click', () => applyVibe(btn.dataset.vibe)));
-document.getElementById('host-money').addEventListener('click', () => triggerMoneyRain(false));
-document.getElementById('host-pulse').addEventListener('click', () => triggerPulse(false));
-document.getElementById('host-media-load').addEventListener('click', () => {
-  const val = document.getElementById('host-media-url').value.trim();
-  const id = extractYouTubeId(val);
-  if (!id) {
-    document.getElementById('host-status').textContent = 'Invalid YouTube URL or ID';
-    return;
-  }
-  document.getElementById('host-status').textContent = 'Loaded to wall';
-  applyMediaWall(id, val, false);
-});
-document.getElementById('host-media-clear').addEventListener('click', () => {
-  document.getElementById('host-media-url').value = '';
-  document.getElementById('host-status').textContent = 'Wall cleared';
-  applyMediaWall('', '', false);
-});
 
 // ==================== PANELS ====================
-function anyPanelOpen() { return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block') || hostPanel.style.display === 'block'; }
-function closeAllPanels() { document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); hostPanel.style.display = 'none'; }
+function anyPanelOpen() { return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block'); }
+function closeAllPanels() { document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); }
 function openPanel(id) {
   closeAllPanels();
   document.getElementById(id).style.display = 'block';
@@ -1777,7 +1737,6 @@ function tryInteract() {
   const i = nearest();
   if (!i) return;
   if (i.type === 'whiteboard') openPanel('whiteboard');
-  else if (i.type === 'host') toggleHostPanel(true);
   else if (i.type === 'arcade') { openPanel('arcade-panel'); startArcade(); }
   else if (i.type === 'ttt') { openPanel('ttt-panel'); resetTTT(); }
   else if (i.type === 'coffee') addChat('System', '*' + player.name + ' orders an overpriced coffee ☕*', '#e8b96a');
@@ -1786,6 +1745,15 @@ function tryInteract() {
   else if (i.type === 'basketball') openPanel('basketball-panel');
   else if (i.type === 'fifa') openPanel('fifa-panel');
   else if (i.type === 'money') addChat('System', '*' + player.name + ' admires the cash pile like a true menace 💰*', '#7adf9a');
+  else if (i.type === 'hostconsole') {
+    if (isHostUser()) {
+      const p = document.getElementById('host-panel');
+      p.style.display = p.style.display === 'block' ? 'none' : 'block';
+      if (document.pointerLockElement) document.exitPointerLock();
+    } else {
+      addChat('System', '*Only Pax can use the host console*', '#e88080');
+    }
+  }
 }
 
 // ==================== MOVEMENT ====================
@@ -2113,8 +2081,7 @@ function finishLoading() {
 }
 setLoad(95, 'FINALIZING...');
 setTimeout(() => {
-  try { applyVibe('chill', true);
-finishLoading(); } catch (err) { showFatal(err && err.stack ? err.stack : err); }
+  try { finishLoading(); } catch (err) { showFatal(err && err.stack ? err.stack : err); }
 }, 120);
 
 // ==================== BEGIN ====================
@@ -2136,7 +2103,7 @@ document.getElementById('begin').onclick = () => {
   if (!isMobile()) renderer.domElement.requestPointerLock();
   connectWS(rid);
   refreshAdminInfo();
-  hostBadge.style.display = isHostUser() ? 'block' : 'none';
+  document.getElementById('host-badge').style.display = isHostUser() ? 'block' : 'none';
 };
 
 // ==================== REMOTES ====================
@@ -2166,22 +2133,46 @@ function updateRemotes(dt) {
 let safeOpen = 0;
 function updateRoomFx(t, dt) {
   if (centerSculpture) {
-    centerSculpture.rotation.y += dt * 0.8;
+    const pulseScale = 1 + eventPulse * 0.45;
+    centerSculpture.rotation.y += dt * (0.8 + eventPulse * 2.2);
     centerSculpture.rotation.x = Math.sin(t * 0.8) * 0.15;
-    const s = 1 + pulseFx * 0.22;
-    centerSculpture.scale.setScalar(s);
-    pulseFx *= 0.92;
+    centerSculpture.scale.setScalar(pulseScale);
+    if (centerSculpture.material && centerSculpture.material.emissiveIntensity !== undefined) {
+      centerSculpture.material.emissiveIntensity = 0.55 + eventPulse * 1.9;
+    }
   }
   if (cashStack) cashStack.position.y = Math.sin(t * 1.6) * 0.05;
   if (safeDoor) {
     const target = Math.sin(t * 0.9) * 0.5 + 0.6;
     safeOpen += (target - safeOpen) * 0.02;
-    safeDoor.position.z = 0 + Math.sin(safeOpen) * 0.8;
-    safeDoor.position.x = 1.07 + (1 - Math.cos(safeOpen)) * 0.2;
+    safeDoor.position.z = 11.4 + Math.sin(safeOpen) * 0.8;
+    safeDoor.position.x = -16.03 + (1 - Math.cos(safeOpen)) * 0.2;
     safeDoor.rotation.y = -safeOpen;
   }
-  updateMoneyRain(dt);
-  updateMediaWallPortal();
+  eventPulse = Math.max(0, eventPulse - dt * 0.9);
+
+  for (let i = moneyRain.length - 1; i >= 0; i--) {
+    const p = moneyRain[i];
+    p.life -= dt;
+    p.y += p.vy * dt;
+    p.x += p.vx * dt;
+    p.z += p.vz * dt;
+    p.mesh.position.set(p.x, p.y, p.z);
+    p.mesh.rotation.x += p.rx * dt;
+    p.mesh.rotation.y += p.ry * dt;
+    p.mesh.rotation.z += p.rz * dt;
+    p.mesh.material.opacity = Math.max(0, Math.min(0.95, p.life / 1.6));
+    if (p.y < -0.5 || p.life <= 0) {
+      moneyRainGroup.remove(p.mesh);
+      if (p.mesh.geometry) p.mesh.geometry.dispose();
+      if (p.mesh.material) p.mesh.material.dispose();
+      moneyRain.splice(i, 1);
+    }
+  }
+
+  if (fifaScreenMesh && fifaScreenMesh.material && fifaScreenMesh.material.emissive) {
+    fifaScreenMesh.material.emissive.set(0x000000);
+  }
 }
 
 // ==================== LOOP ====================
