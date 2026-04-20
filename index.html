@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>The Vibe Room</title>
+<title>The WOYS Room</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Courier New', monospace; background: #0a0612; touch-action: none; overscroll-behavior: none; }
@@ -102,20 +102,20 @@ canvas { display: block; }
 <div id="game"><div id="error-overlay"></div>
 
   <div id="loading">
-    <h1>THE VIBE ROOM</h1>
+    <h1>THE WOYS ROOM</h1>
     <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
     <div id="load-bar-wrap"><div id="load-bar"></div></div>
     <div id="load-msg">INITIALIZING...</div>
   </div>
 
   <div id="start" style="display:none;">
-    <h1>THE VIBE ROOM</h1>
+    <h1>THE WOYS ROOM</h1>
     <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
     <input id="name-input" placeholder="YOUR NAME" maxlength="14" value="Pax">
     <div style="color:#e8b96a; font-size:10px; letter-spacing:3px; margin-bottom:10px;">▸ SELECT YOUR CHARACTER ◂</div>
     <div id="char-grid"></div>
     <div class="room-row">
-      <input id="room-input" placeholder="ROOM CODE" maxlength="20" value="vibe-room">
+      <input id="room-input" placeholder="ROOM CODE" maxlength="20" value="woys-room">
       <button id="begin">ENTER</button>
     </div>
     <p style="color:#a89878; font-size:10px; letter-spacing:1px; text-align:center; margin-top:10px; max-width: 340px;">Same room code = same room · Desktop click-to-lock · Mobile: joystick + swipe</p>
@@ -1034,7 +1034,7 @@ camera.position.set(0, 6.2, 18);
 const remotes = new Map();
 
 // ==================== WEBSOCKET ====================
-let ws = null, myId = null, roomId = 'vibe-room';
+let ws = null, myId = null, roomId = 'woys-room';
 let wsConnected = false, reconnectTimer = null;
 const roomBadge = document.getElementById('room-badge');
 const connBadge = document.getElementById('conn-badge');
@@ -1046,7 +1046,7 @@ function setConn(state) {
 }
 
 function connectWS(rid) {
-  roomId = (rid||'').trim() || 'vibe-room';
+  roomId = (rid||'').trim() || 'woys-room';
   roomBadge.textContent = 'ROOM: ' + roomId.toUpperCase().slice(0,12);
   setConn('connecting');
   try { ws = new WebSocket(WS_URL); } catch(e) { setConn('offline'); scheduleReconnect(); return; }
@@ -1439,7 +1439,7 @@ function addChat(name, text, color) {
   chatLog.appendChild(d); chatLog.scrollTop = chatLog.scrollHeight;
 }
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-addChat('System','Welcome to the Vibe Room. Share the room code.','#e8b96a');
+addChat('System','Welcome to the woys Room. Share the room code.','#e8b96a');
 addChat('System','Tap 🎤 to enable voice chat.','#e8b96a');
 chatInput.addEventListener('keydown', e => {
   if (e.key==='Enter' && chatInput.value.trim()) {
@@ -1512,7 +1512,7 @@ document.getElementById('ball-reset').onclick = () => {
 
 // ==================== SNAKE ====================
 const arcadeCanvas=document.getElementById('arcade-canvas'), actx=arcadeCanvas.getContext('2d');
-let snake,snakeDir,snakeFood,snakeScore,snakeLoop;
+let snake=[{x:8,y:8},{x:7,y:8},{x:6,y:8}],snakeDir={x:1,y:0},snakeFood={x:12,y:8},snakeScore=0,snakeLoop=null;
 function syncSnakePreview() {
   if (!snakeWallMesh) return;
   if (snakePreviewTex && snakePreviewTex.dispose) snakePreviewTex.dispose();
@@ -1558,6 +1558,7 @@ function tickSnake() {
   drawSnake();
 }
 function drawSnake(){
+  if (!snake || !snakeFood) return;
   actx.fillStyle='#000';actx.fillRect(0,0,320,320);
   actx.fillStyle='#e8b96a';actx.fillRect(snakeFood.x*20,snakeFood.y*20,18,18);
   for(let i=0;i<snake.length;i++){actx.fillStyle=i===0?'#7adf9a':'#3a8a5a';actx.fillRect(snake[i].x*20,snake[i].y*20,18,18);}
@@ -1605,7 +1606,7 @@ document.getElementById('begin').onclick = () => {
   player.group.position.copy(pos);
   scene.add(player.group);
 
-  const rid = document.getElementById('room-input').value.trim() || 'vibe-room';
+  const rid = document.getElementById('room-input').value.trim() || 'woys-room';
   document.getElementById('start').style.display = 'none';
   document.getElementById('hud').style.display = 'block';
   document.getElementById('top-right').style.display = 'flex';
