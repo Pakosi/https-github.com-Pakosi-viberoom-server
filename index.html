@@ -283,10 +283,8 @@ canvas { display: block; }
     </div>
     <div class="host-info" id="host-info">Pax can control room vibe and trigger room events from here.</div>
   </div>
-    <iframe id="media-wall-frame" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
-  </div>
 
-  <div id="mobile-ctrls">
+<div id="mobile-ctrls">
     <div id="joystick"><div id="joy-knob"></div></div>
     <div id="mobile-btns">
       <div class="row">
@@ -322,7 +320,7 @@ const errorOverlay = document.getElementById('error-overlay');
 function showFatal(msg) {
   console.error(msg);
   errorOverlay.style.display = 'block';
-  errorOverlay.innerHTML = '<b>ROOM BUILD ERROR</b>' + String(msg).replace(/</g, '&lt;');
+  errorOverlay.innerHTML = '<b>ROOM BUILD ERROR</b>' + String(msg).replace(/</g, '&lt;').replace(/\n/g, '<br>');
   document.getElementById('loading').style.display = 'none';
   document.getElementById('start').style.display = 'flex';
 }
@@ -1043,17 +1041,19 @@ function buildCustomRoom() {
   boardGlow.position.set(12.5, 1.32, -13.55);
   roomGroup.add(boardGlow);
 
-  // host mode uses safe events only in phase 1
+  // host mode safe wall
   const mediaFrame = box(10.5, 5.8, 0.24, 0x2b313a, 0.16, 0.82);
   mediaFrame.position.set(0.0, 4.4, 14.6);
   roomGroup.add(mediaFrame);
-  mediaWallMesh = new THREE.Mesh(
+
+  const safeWallTex = makeLabelTexture('MEDIA WALL', 'PHASE 1 SAFE MODE', '#e8b96a', '#0b1020');
+  const safeWallMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(9.6, 5.1),
-    new THREE.MeshBasicMaterial({ map: mediaWallTex })
+    new THREE.MeshBasicMaterial({ map: safeWallTex })
   );
-  mediaWallMesh.position.set(0.0, 4.4, 14.46);
-  mediaWallMesh.rotation.y = Math.PI;
-  roomGroup.add(mediaWallMesh);
+  safeWallMesh.position.set(0.0, 4.4, 14.46);
+  safeWallMesh.rotation.y = Math.PI;
+  roomGroup.add(safeWallMesh);
 
   const hostConsole = new THREE.Group();
   hostConsole.position.set(-3.0, 0, -10.2);
