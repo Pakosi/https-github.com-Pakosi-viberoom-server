@@ -652,7 +652,7 @@ function addSpot(x,y,z,color,intensity=1,distance=22,angle=Math.PI/5,targetY=0) 
 
 // ==================== MATERIALS / TEXTURES ====================
 const marbleTex = makeMarbleTexture();
-const wallTex = makeWallTexture();
+let wallTex = makeWallTexture();
 const cityTex = makeCityTexture();
 const fifaScreenTex = makeFifaTexture();
 const basketFloorTex = makeBasketballTexture();
@@ -795,19 +795,38 @@ function ensureTVDom() {
 }
 function placeTVOverlay() {
   if (!tvCreated || !mediaScreenMesh || !hostState.media.videoId) return;
-  const p = mediaScreenMesh.getWorldPosition(new THREE.Vector3());
-  p.project(camera);
-  const visible = p.z > -1 && p.z < 1;
-  if (!visible) {
+
+  const corners = [
+    new THREE.Vector3(-4.8,  2.55, 0),
+    new THREE.Vector3( 4.8,  2.55, 0),
+    new THREE.Vector3(-4.8, -2.55, 0),
+    new THREE.Vector3( 4.8, -2.55, 0)
+  ];
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  let visible = false;
+
+  for (const c of corners) {
+    const wp = mediaScreenMesh.localToWorld(c.clone());
+    wp.project(camera);
+    if (wp.z > -1 && wp.z < 1) visible = true;
+    const sx = (wp.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-wp.y * 0.5 + 0.5) * window.innerHeight;
+    minX = Math.min(minX, sx); maxX = Math.max(maxX, sx);
+    minY = Math.min(minY, sy); maxY = Math.max(maxY, sy);
+  }
+
+  if (!visible || !isFinite(minX) || !isFinite(minY)) {
     tvOverlay.style.display = 'none';
     return;
   }
-  const width = Math.max(220, Math.min(window.innerWidth * 0.36, 520));
-  const height = width * 9 / 16;
-  const x = (p.x * 0.5 + 0.5) * window.innerWidth - width / 2;
-  const y = (-p.y * 0.5 + 0.5) * window.innerHeight - height / 2;
-  tvOverlay.style.left = x + 'px';
-  tvOverlay.style.top = y + 'px';
+
+  const pad = 2;
+  const width = Math.max(180, maxX - minX - pad * 2);
+  const height = Math.max(100, maxY - minY - pad * 2);
+
+  tvOverlay.style.left = (minX + pad) + 'px';
+  tvOverlay.style.top = (minY + pad) + 'px';
   tvOverlay.style.width = width + 'px';
   tvOverlay.style.height = height + 'px';
   tvOverlay.style.display = 'block';
@@ -841,7 +860,11 @@ function startTVPlayback(withAudio=true) {
 
 function broadcastHostEvent(evt) {
   if (!wsConnected) return;
-  wsSend({ type:'chat', data:{ name:'host', text: HOST_PREFIX + JSON.stringify(evt) } });
+  wsSend({ type:'host_event', data: evt });
+}
+function sendRoomStatePatch(patch) {
+  if (!wsConnected) return;
+  wsSend({ type:'room_state', data: patch });
 }
 function isHostUser() {
   return !!(player && player.name && player.name.toLowerCase() === 'pax');
@@ -891,21 +914,27 @@ function applyVibe(mode) {
 }
 function applyHostEvent(evt, local=false) {
   if (!evt || !evt.kind) return;
-  if (evt.kind === 'vibe') {
-    hostState.vibe = evt.mode;
-    applyVibe(evt.mode);
-    if (local) document.getElementById('host-info').textContent = 'Vibe set to ' + String(evt.mode).toUpperCase();
-  } else if (evt.kind === 'pulse') {
+  if (evt.kind === 'pulse') {
     eventPulse = 1.0;
     if (local) document.getElementById('host-info').textContent = 'Center pulse triggered.';
   } else if (evt.kind === 'money') {
     spawnMoneyBurst();
     if (local) document.getElementById('host-info').textContent = 'Money rain triggered.';
-  } else if (evt.kind === 'media') {
-    hostState.media.videoId = evt.videoId || '';
-    hostState.media.playing = !!evt.playing;
-    hostState.media.startAt = +evt.startAt || 0;
-    hostState.media.startedAt = +evt.startedAt || Date.now();
+  }
+}
+function applyRoomState(data) {
+  if (!data || typeof data !== 'object') return;
+  if (data.vibe) {
+    hostState.vibe = data.vibe;
+    applyVibe(data.vibe);
+  }
+  if (data.media) {
+    hostState.media = {
+      videoId: data.media.videoId || '',
+      playing: !!data.media.playing,
+      startAt: +data.media.startAt || 0,
+      startedAt: +data.media.startedAt || 0
+    };
     if (!hostState.media.videoId) {
       if (tvCreated) {
         tvIframe.src = '';
@@ -913,10 +942,8 @@ function applyHostEvent(evt, local=false) {
         tvAudioJoin.style.display = 'none';
       }
       tvStartedByUser = false;
-    } else if (local) {
-      startTVPlayback(true);
     } else {
-      syncTVPlayback();
+      startTVPlayback(false);
     }
     document.getElementById('host-info').textContent = hostState.media.videoId ? 'Wall TV synced.' : 'Wall TV stopped.';
   }
@@ -1907,9 +1934,9 @@ document.querySelectorAll('#host-panel [data-vibe]').forEach(btn => {
   btn.addEventListener('click', () => {
     if (!isHostUser()) return;
     const mode = btn.dataset.vibe;
-    const evt = { kind:'vibe', mode };
-    applyHostEvent(evt, true);
-    broadcastHostEvent(evt);
+    applyRoomState({ vibe: mode });
+    sendRoomStatePatch({ vibe: mode, media: hostState.media });
+    document.getElementById('host-info').textContent = 'Vibe set to ' + String(mode).toUpperCase();
   });
 });
 document.getElementById('host-load-media').addEventListener('click', () => {
@@ -1920,15 +1947,16 @@ document.getElementById('host-load-media').addEventListener('click', () => {
     document.getElementById('host-info').textContent = 'Invalid YouTube URL or video ID.';
     return;
   }
-  const evt = { kind:'media', videoId, playing:true, startAt:0, startedAt: Date.now() };
-  applyHostEvent(evt, true);
-  broadcastHostEvent(evt);
+  const media = { videoId, playing:true, startAt:0, startedAt: Date.now() };
+  applyRoomState({ media });
+  sendRoomStatePatch({ vibe: hostState.vibe, media });
+  document.getElementById('host-info').textContent = 'Wall TV synced.';
 });
 document.getElementById('host-stop-media').addEventListener('click', () => {
   if (!isHostUser()) return;
-  const evt = { kind:'media', videoId:'', playing:false, startAt:0, startedAt:0 };
-  applyHostEvent(evt, true);
-  broadcastHostEvent(evt);
+  const media = { videoId:'', playing:false, startAt:0, startedAt:0 };
+  applyRoomState({ media });
+  sendRoomStatePatch({ vibe: hostState.vibe, media });
 });
 document.getElementById('host-money-rain').addEventListener('click', () => {
   if (!isHostUser()) return;
