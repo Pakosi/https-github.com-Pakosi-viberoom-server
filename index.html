@@ -658,6 +658,9 @@ function broadcastHostEvent(evt) {
   if (!wsConnected) return;
   wsSend({ type:'chat', data:{ name:'host', text: HOST_PREFIX + JSON.stringify(evt) } });
 }
+function isHostUser() {
+  return !!(player && player.name && player.name.toLowerCase() === 'pax');
+}
 function applyVibe(mode) {
   activeVibe = mode;
   if (mode === 'war') {
