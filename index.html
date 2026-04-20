@@ -187,8 +187,6 @@ canvas { display: block; }
 </script>
 <script type="module">
 import * as THREE from 'three';
-import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/loaders/GLTFLoader.js';
-import { DRACOLoader } from 'https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/loaders/DRACOLoader.js';
 import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/environments/RoomEnvironment.js';
 
 // ==================== WS ====================
@@ -270,117 +268,296 @@ scene.add(fill);
 
 setLoad(15, 'LOADING ROOM...');
 
-// ==================== LOAD GLB ROOM ====================
-// Draco decoder for compressed geometry
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/libs/draco/');
-
-const gltfLoader = new GLTFLoader();
-gltfLoader.setDRACOLoader(dracoLoader);
-
+// ==================== CUSTOM LUXURY ROOM ====================
 let roomLoaded = false;
 let roomScene = null;
 
-// Room GLB — place room-final.glb next to index.html
-// If loading fails we fall back to a minimal box room
-gltfLoader.load(
-  'https://pub-a43034397efa4525b4f8ac355f0ad705.r2.dev/room-final.glb',
-  (gltf) => {
-    roomScene = gltf.scene;
-
-    // Auto-fit the room to a reasonable scale
-    const box = new THREE.Box3().setFromObject(roomScene);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-
-    // Scale so longest dimension is ~25 units
-    const maxDim = Math.max(size.x, size.y, size.z);
-    const targetSize = 60;
-    const scaleFactor = targetSize / maxDim;
-    roomScene.scale.setScalar(scaleFactor);
-
-    // Re-center at origin, floor at y=0
-    box.setFromObject(roomScene);
-    box.getCenter(center);
-    roomScene.position.x = -center.x;
-    roomScene.position.z = -center.z;
-    roomScene.position.y = -box.min.y * scaleFactor; // floor at 0
-
-    // Enable shadows, improve materials
-    roomScene.traverse(obj => {
-      if (obj.isMesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-        obj.frustumCulled = true;
-        if (obj.material) {
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-          mats.forEach(m => {
-            if (m.isMeshStandardMaterial) {
-              m.envMapIntensity = 1.2;
-            }
-          });
-        }
-      }
-    });
-
-    scene.add(roomScene);
-    window.roomScene = roomScene;
-    window._bounds = () => { const b = new THREE.Box3().setFromObject(roomScene); console.log(JSON.stringify({minX:+b.min.x.toFixed(2),maxX:+b.max.x.toFixed(2),minY:+b.min.y.toFixed(2),maxY:+b.max.y.toFixed(2),minZ:+b.min.z.toFixed(2),maxZ:+b.max.z.toFixed(2)})); };
-    roomLoaded = true;
-    setLoad(90, 'FINALIZING...');
-    setTimeout(finishLoading, 400);
-  },
-  (xhr) => {
-    if (xhr.total > 0) {
-      const pct = Math.round((xhr.loaded / xhr.total) * 70) + 15;
-      setLoad(Math.min(pct, 88), 'LOADING ROOM... ' + Math.round(xhr.loaded/1024/1024) + 'MB');
-    }
-  },
-  (err) => {
-    console.warn('GLB load failed, using fallback room', err);
-    buildFallbackRoom();
-    finishLoading();
-  }
-);
-
-// ==================== FALLBACK ROOM (if GLB not found) ====================
-function buildFallbackRoom() {
-  const W = 20, D = 16, H = 6;
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.8 });
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1a1620, roughness: 0.9 });
-
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), floorMat);
-  floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
-
-  [[0, H/2, -D/2, 0], [0, H/2, D/2, Math.PI],
-   [W/2, H/2, 0, -Math.PI/2], [-W/2, H/2, 0, Math.PI/2]].forEach(([x,y,z,ry]) => {
-    const ww = (Math.abs(ry) < 0.1) ? W : D;
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(ww, H), wallMat);
-    w.position.set(x, y, z); w.rotation.y = ry; w.receiveShadow = true; scene.add(w);
-  });
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W, D), wallMat);
-  ceil.rotation.x = Math.PI/2; ceil.position.y = H; scene.add(ceil);
-}
-
-// ==================== PLAYER SPAWN & ROOM BOUNDS ====================
-// These are in "world space" after GLB is scaled. We use simple flat-plane bounds.
-// Player walks on y=0. Room roughly -12 to +12 on X, -10 to +10 on Z after scale.
-const BOUNDS = { minX: -11, maxX: 11, minZ: -9, maxZ: 9 };
-
-// Interaction zones — positioned in the room in world coords
-// Adjust these X/Z values once you've seen where things are in the GLB
-const INTERACTS = [
-  { type: 'whiteboard', x: 0,    z: -7,  r: 4, label: 'WHITEBOARD ✏️' },
-  { type: 'table',      x: 0,    z: 0,   r: 5, label: 'MEETING TABLE 💻' },
-  { type: 'lounge',     x: -8,   z: 4,   r: 4, label: 'LOUNGE 🛋️' },
-  { type: 'arcade',     x: -9,   z: -5,  r: 3, label: 'PLAY SNAKE 🎮' },
-  { type: 'ttt',        x: 8,    z: 5,   r: 3, label: 'TIC TAC TOE ✖️' },
-  { type: 'coffee',     x: -9,   z: 0,   r: 3, label: 'COFFEE BAR ☕' },
+const FLOOR_Y = 0;
+const BOUNDS = { minX: -24, maxX: 24, minZ: -18, maxZ: 18 };
+const BLOCKERS = [
+  // Bar block
+  { minX: -22, maxX: -15.2, minZ: -8.2, maxZ: 7.8 },
+  // Back bar shelf / wall
+  { minX: -23.5, maxX: -21.5, minZ: -9.5, maxZ: 9.5 },
+  // Lounge couches and table
+  { minX: 11.8, maxX: 20.5, minZ: 4.2, maxZ: 14.5 },
+  // Meeting table
+  { minX: -4.5, maxX: 6.5, minZ: 2.0, maxZ: 10.8 },
+  // Screen wall platform
+  { minX: 16.8, maxX: 23.5, minZ: -13.5, maxZ: -5.8 },
+  // Arcade pedestals
+  { minX: 13.0, maxX: 21.2, minZ: -1.2, maxZ: 4.8 },
+  // Center sculpture plinth
+  { minX: -2.8, maxX: 2.8, minZ: -2.8, maxZ: 2.8 },
 ];
 
-// ==================== CHARACTER BUILDER ====================
+const INTERACTS = [
+  { type: 'whiteboard', x: 19.5, z: -10.5, r: 3.6, label: 'PRESENTATION WALL ✏️' },
+  { type: 'table',      x: 1.0,  z: 12.2,  r: 4.2, label: 'WAR TABLE 💻' },
+  { type: 'lounge',     x: 16.3, z: 10.6,  r: 4.2, label: 'LOUNGE PIT 🛋️' },
+  { type: 'arcade',     x: 15.4, z: 2.2,   r: 2.4, label: 'PLAY SNAKE 🎮' },
+  { type: 'ttt',        x: 20.2, z: 2.2,   r: 2.3, label: 'TIC TAC TOE ✖️' },
+  { type: 'coffee',     x: -18.2, z: 0.2,  r: 3.2, label: 'BAR / COFFEE ☕' },
+];
+
+function addBox(parent, w, h, d, color, x, y, z, opts = {}) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: opts.roughness ?? 0.55,
+    metalness: opts.metalness ?? 0.18,
+    transparent: !!opts.transparent,
+    opacity: opts.opacity ?? 1,
+    emissive: opts.emissive ?? 0x000000,
+    emissiveIntensity: opts.emissiveIntensity ?? 0,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.castShadow = opts.castShadow ?? true;
+  m.receiveShadow = opts.receiveShadow ?? true;
+  parent.add(m);
+  return m;
+}
+
+function addCylinder(parent, rt, rb, h, seg, color, x, y, z, opts = {}) {
+  const geo = new THREE.CylinderGeometry(rt, rb, h, seg);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: opts.roughness ?? 0.4,
+    metalness: opts.metalness ?? 0.35,
+    emissive: opts.emissive ?? 0x000000,
+    emissiveIntensity: opts.emissiveIntensity ?? 0,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.castShadow = opts.castShadow ?? true;
+  m.receiveShadow = opts.receiveShadow ?? true;
+  parent.add(m);
+  return m;
+}
+
+function addPanel(parent, w, h, color, x, y, z, ry = 0, opts = {}) {
+  const geo = new THREE.PlaneGeometry(w, h);
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: opts.roughness ?? 0.75,
+    metalness: opts.metalness ?? 0.08,
+    side: THREE.DoubleSide,
+    transparent: !!opts.transparent,
+    opacity: opts.opacity ?? 1,
+    emissive: opts.emissive ?? 0x000000,
+    emissiveIntensity: opts.emissiveIntensity ?? 0,
+  });
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x, y, z);
+  m.rotation.y = ry;
+  m.receiveShadow = opts.receiveShadow ?? true;
+  parent.add(m);
+  return m;
+}
+
+function buildCustomRoom() {
+  roomScene = new THREE.Group();
+  roomScene.name = 'customLuxuryRoom';
+
+  // Floor
+  const floorGeo = new THREE.PlaneGeometry(54, 42, 1, 1);
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0x111214,
+    roughness: 0.22,
+    metalness: 0.08,
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = FLOOR_Y;
+  floor.receiveShadow = true;
+  roomScene.add(floor);
+
+  // Marble inlays
+  addBox(roomScene, 20, 0.02, 12, 0x17191e, 0, FLOOR_Y + 0.01, 7.5, { roughness: 0.15, metalness: 0.12 });
+  addBox(roomScene, 8, 0.02, 8, 0x15171b, 0, FLOOR_Y + 0.012, 0, { roughness: 0.12, metalness: 0.15, emissive: 0x22170a, emissiveIntensity: 0.12 });
+
+  // Ceiling
+  addBox(roomScene, 54, 0.4, 42, 0x0b0d11, 0, 8.8, 0, { roughness: 0.9, metalness: 0.05, receiveShadow: true });
+  addBox(roomScene, 46, 0.08, 34, 0x121419, 0, 8.55, 0, { roughness: 0.55, metalness: 0.08 });
+
+  // Ceiling light strips
+  [
+    [-14, 8.46, 0, 18, 0.16, 0.18],
+    [14, 8.46, 0, 18, 0.16, 0.18],
+    [0, 8.46, 12.5, 12, 0.18, 0.16],
+    [0, 8.46, -12.5, 12, 0.18, 0.16],
+  ].forEach(([x, y, z, w, h, d]) => {
+    addBox(roomScene, w, h, d, 0xf0c987, x, y, z, { emissive: 0xd8a24a, emissiveIntensity: 1.2, roughness: 0.25, metalness: 0.05 });
+  });
+
+  // Walls
+  addBox(roomScene, 54, 9, 0.6, 0x111318, 0, 4.5, 18.9, { roughness: 0.88, metalness: 0.06 });
+  addBox(roomScene, 22, 9, 0.6, 0x111318, -16, 4.5, -18.9, { roughness: 0.88, metalness: 0.06 });
+  addBox(roomScene, 16, 9, 0.6, 0x111318, 16, 4.5, -18.9, { roughness: 0.88, metalness: 0.06 });
+  addBox(roomScene, 0.6, 9, 38, 0x111318, -26.7, 4.5, 0, { roughness: 0.88, metalness: 0.06 });
+  addBox(roomScene, 0.6, 9, 38, 0x111318, 26.7, 4.5, 0, { roughness: 0.88, metalness: 0.06 });
+
+  // Entry portal
+  addBox(roomScene, 12, 9, 0.5, 0x0c0f14, 0, 4.5, -18.85, { roughness: 0.92, metalness: 0.05 });
+  addBox(roomScene, 6, 6.4, 0.25, 0x25180c, 0, 3.3, -18.55, { emissive: 0x6a3f10, emissiveIntensity: 0.22, roughness: 0.45, metalness: 0.15 });
+
+  // Front window wall
+  addBox(roomScene, 54, 1.1, 0.6, 0x111318, 0, 0.55, -18.9, { roughness: 0.85 });
+  addBox(roomScene, 54, 0.8, 0.6, 0x111318, 0, 8.15, -18.9, { roughness: 0.85 });
+  [-18, -6, 6, 18].forEach(x => addBox(roomScene, 0.45, 6.8, 0.45, 0x252a32, x, 4.2, -18.8, { roughness: 0.45, metalness: 0.75 }));
+  [-12, 0, 12].forEach(x => {
+    addBox(roomScene, 11.3, 6.6, 0.08, 0x8fb7d6, x, 4.15, -18.45, {
+      transparent: true, opacity: 0.18, roughness: 0.08, metalness: 0.95
+    });
+  });
+
+  // Skyline
+  const skyline = new THREE.Group();
+  for (let i = 0; i < 42; i++) {
+    const w = 0.8 + (i % 5) * 0.55;
+    const h = 2 + (i * 1.37 % 8);
+    const d = 0.8 + (i % 4) * 0.4;
+    const x = -25 + i * 1.25;
+    const z = -30 - (i % 3) * 2.6;
+    const b = addBox(skyline, w, h, d, 0x0f1520, x, h / 2 - 0.3, z, { roughness: 0.95, metalness: 0.05, castShadow: false, receiveShadow: false });
+    if (i % 2 === 0) {
+      const win = addBox(skyline, w * 0.9, h * 0.9, 0.05, 0xd7b56a, x, h / 2 - 0.25, z + d / 2 + 0.03, {
+        emissive: 0xc48c2a, emissiveIntensity: 0.8, transparent: true, opacity: 0.18, castShadow: false, receiveShadow: false
+      });
+    }
+  }
+  skyline.position.y = 0.3;
+  roomScene.add(skyline);
+
+  // Side accent walls
+  addBox(roomScene, 0.2, 5.4, 9, 0x5e2e8f, -26.3, 3.1, 10.5, { emissive: 0x35185a, emissiveIntensity: 1.2, transparent: true, opacity: 0.55, castShadow: false });
+  addBox(roomScene, 0.2, 5.4, 9, 0x2e4f9d, 26.3, 3.1, -9.8, { emissive: 0x1b2f62, emissiveIntensity: 1.0, transparent: true, opacity: 0.55, castShadow: false });
+
+  // Center sculpture
+  const sculpture = new THREE.Group();
+  addCylinder(sculpture, 2.6, 2.9, 0.45, 28, 0x101216, 0, 0.23, 0, { roughness: 0.22, metalness: 0.25 });
+  const torus = new THREE.Mesh(
+    new THREE.TorusGeometry(2.35, 0.18, 20, 64),
+    new THREE.MeshStandardMaterial({ color: 0xd8b15e, roughness: 0.18, metalness: 0.9, emissive: 0x5a3c10, emissiveIntensity: 0.6 })
+  );
+  torus.rotation.x = Math.PI / 2;
+  torus.position.y = 2.6;
+  torus.castShadow = true;
+  sculpture.add(torus);
+
+  const orb = new THREE.Mesh(
+    new THREE.SphereGeometry(0.62, 32, 24),
+    new THREE.MeshStandardMaterial({ color: 0xe7d1a2, emissive: 0xd39b36, emissiveIntensity: 1.6, roughness: 0.14, metalness: 0.35 })
+  );
+  orb.position.y = 2.6;
+  orb.castShadow = true;
+  sculpture.add(orb);
+
+  const coreLight = new THREE.PointLight(0xd39b36, 2.4, 10, 2);
+  coreLight.position.set(0, 2.6, 0);
+  sculpture.add(coreLight);
+  roomScene.add(sculpture);
+
+  // Lounge zone
+  const couchColor = 0x1a1d22;
+  addBox(roomScene, 6.2, 0.7, 2.1, couchColor, 16.2, 1.05, 13.2, { roughness: 0.92 });
+  addBox(roomScene, 6.2, 1.2, 0.45, couchColor, 16.2, 1.85, 14.0, { roughness: 0.92 });
+  addBox(roomScene, 2.1, 0.7, 4.6, couchColor, 12.7, 1.05, 10.3, { roughness: 0.92 });
+  addBox(roomScene, 0.45, 1.2, 4.6, couchColor, 11.9, 1.85, 10.3, { roughness: 0.92 });
+  addBox(roomScene, 2.6, 0.45, 1.5, 0x17191d, 16.8, 0.5, 9.7, { roughness: 0.35, metalness: 0.35 });
+  addCylinder(roomScene, 0.14, 0.14, 0.42, 10, 0x756448, 15.9, 0.22, 9.2, { metalness: 0.55, roughness: 0.45 });
+  addCylinder(roomScene, 0.14, 0.14, 0.42, 10, 0x756448, 17.7, 0.22, 9.2, { metalness: 0.55, roughness: 0.45 });
+  addCylinder(roomScene, 0.14, 0.14, 0.42, 10, 0x756448, 15.9, 0.22, 10.2, { metalness: 0.55, roughness: 0.45 });
+  addCylinder(roomScene, 0.14, 0.14, 0.42, 10, 0x756448, 17.7, 0.22, 10.2, { metalness: 0.55, roughness: 0.45 });
+
+  // Meeting table
+  addBox(roomScene, 10.5, 0.35, 3.2, 0x1a1613, 1.0, 1.15, 6.2, { roughness: 0.25, metalness: 0.22 });
+  [-3.6, -1.2, 1.2, 3.6].forEach(x => {
+    addCylinder(roomScene, 0.18, 0.18, 1.9, 12, 0x4d3a26, x, 0.35, 5.2, { roughness: 0.45, metalness: 0.58 });
+    addCylinder(roomScene, 0.18, 0.18, 1.9, 12, 0x4d3a26, x, 0.35, 7.2, { roughness: 0.45, metalness: 0.58 });
+  });
+  [-3.8, -1.4, 1.0, 3.4].forEach(x => {
+    addBox(roomScene, 1.1, 0.35, 1.1, 0x181b20, x, 0.55, 3.3, { roughness: 0.82 });
+    addBox(roomScene, 1.1, 1.15, 0.3, 0x181b20, x, 1.2, 2.95, { roughness: 0.82 });
+    addBox(roomScene, 1.1, 0.35, 1.1, 0x181b20, x, 0.55, 9.1, { roughness: 0.82 });
+    addBox(roomScene, 1.1, 1.15, 0.3, 0x181b20, x, 1.2, 9.45, { roughness: 0.82 });
+  });
+
+  // Bar zone
+  addBox(roomScene, 6.6, 1.25, 15.2, 0x171311, -18.4, 0.85, 0, { roughness: 0.3, metalness: 0.15 });
+  addBox(roomScene, 0.5, 1.5, 15.5, 0xe1b35f, -15.1, 1.0, 0, { emissive: 0x8f5d16, emissiveIntensity: 0.45, roughness: 0.2, metalness: 0.75 });
+  addBox(roomScene, 1.2, 5.8, 16.5, 0x101216, -22.6, 3.0, 0, { roughness: 0.82, metalness: 0.08 });
+  [-5.5, -1.8, 1.8, 5.5].forEach(z => {
+    addBox(roomScene, 0.9, 0.12, 3.4, 0x6d5532, -21.85, 2.5, z, { roughness: 0.32, metalness: 0.25 });
+    addBox(roomScene, 0.9, 0.12, 3.4, 0x6d5532, -21.85, 4.1, z, { roughness: 0.32, metalness: 0.25 });
+  });
+  [-5.5, -1.8, 1.8, 5.5].forEach((z, idx) => {
+    [2.0, 3.0, 4.0].forEach((y, j) => {
+      addCylinder(roomScene, 0.16, 0.16, 0.55, 10, idx % 2 ? 0x30475a : 0x7a5532, -21.8, y, z + (j - 1) * 0.75, {
+        roughness: 0.18, metalness: 0.45, emissive: 0x120d06, emissiveIntensity: 0.12
+      });
+    });
+  });
+  addBox(roomScene, 0.8, 0.65, 0.8, 0x20252b, -18.3, 1.5, -5.8, { roughness: 0.55, metalness: 0.35 });
+  addCylinder(roomScene, 0.18, 0.24, 0.55, 12, 0xb7bcc4, -18.3, 2.0, -5.8, { roughness: 0.1, metalness: 0.9 });
+
+  // Presentation wall
+  addBox(roomScene, 8.2, 4.5, 0.28, 0x0b0d10, 20.5, 3.4, -10.8, { roughness: 0.2, metalness: 0.08 });
+  addBox(roomScene, 7.4, 3.8, 0.1, 0xddd9cf, 20.5, 3.4, -10.55, { emissive: 0x403020, emissiveIntensity: 0.08, roughness: 0.92, metalness: 0.02 });
+  addBox(roomScene, 8.5, 0.25, 2.8, 0x13161b, 20.5, 0.14, -9.5, { roughness: 0.75 });
+
+  // Arcade corner
+  const arcade1 = new THREE.Group();
+  addBox(arcade1, 2.2, 4.0, 1.8, 0x0e1014, 0, 2.0, 0, { roughness: 0.55, metalness: 0.3 });
+  addBox(arcade1, 1.55, 1.1, 0.08, 0x7ce2a8, 0, 2.7, 0.94, { emissive: 0x1f7a52, emissiveIntensity: 1.6, roughness: 0.12, metalness: 0.15 });
+  addBox(arcade1, 1.1, 0.18, 0.7, 0x1d2128, 0, 1.3, 0.55, { roughness: 0.5, metalness: 0.35 });
+  addCylinder(arcade1, 0.12, 0.12, 0.22, 12, 0xd45757, -0.3, 1.52, 0.54, { roughness: 0.15, metalness: 0.35, emissive: 0x5a1010, emissiveIntensity: 0.5 });
+  addCylinder(arcade1, 0.12, 0.12, 0.22, 12, 0x57a4d4, 0.3, 1.52, 0.54, { roughness: 0.15, metalness: 0.35, emissive: 0x12324d, emissiveIntensity: 0.5 });
+  arcade1.position.set(15.3, 0, 2.0);
+  roomScene.add(arcade1);
+
+  const pedestal = new THREE.Group();
+  addBox(pedestal, 2.1, 1.1, 2.1, 0x101318, 0, 0.55, 0, { roughness: 0.45, metalness: 0.3 });
+  addBox(pedestal, 1.55, 0.12, 1.55, 0xe8b96a, 0, 1.13, 0, { emissive: 0x7a5320, emissiveIntensity: 0.75, roughness: 0.22, metalness: 0.55 });
+  pedestal.position.set(20.2, 0, 2.0);
+  roomScene.add(pedestal);
+
+  // Decorative planters
+  [[-8, -13], [8, -13], [-24, 14], [24, 14]].forEach(([x, z]) => {
+    addBox(roomScene, 1.2, 1.1, 1.2, 0x181a1f, x, 0.55, z, { roughness: 0.5, metalness: 0.22 });
+    for (let i = 0; i < 6; i++) {
+      const leaf = new THREE.Mesh(
+        new THREE.BoxGeometry(0.18, 1.2 + i * 0.12, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0x1d4f34, roughness: 0.88, metalness: 0.02 })
+      );
+      leaf.position.set(x + (i - 2.5) * 0.11, 1.2 + i * 0.08, z + ((i % 2) ? 0.16 : -0.14));
+      leaf.rotation.z = (i - 2.5) * 0.08;
+      leaf.castShadow = true;
+      roomScene.add(leaf);
+    }
+  });
+
+  // Accent point lights
+  [
+    { x: -18, y: 4.4, z: 0, c: 0xd79232, i: 1.4, d: 14 },
+    { x: 16, y: 4.2, z: 10, c: 0x6b45d8, i: 1.1, d: 12 },
+    { x: 20, y: 4.0, z: -10, c: 0x4d90c8, i: 1.1, d: 12 },
+  ].forEach(l => {
+    const p = new THREE.PointLight(l.c, l.i, l.d, 2);
+    p.position.set(l.x, l.y, l.z);
+    roomScene.add(p);
+  });
+
+  scene.add(roomScene);
+  roomLoaded = true;
+  setLoad(90, 'FINALIZING...');
+  setTimeout(finishLoading, 250);
+}
+
+buildCustomRoom();
+
+// ==================== PLAYER SPAWN ====================// ==================== CHARACTER BUILDER ====================
 function texCanvas(w, h, drawFn) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -488,7 +665,7 @@ const player = {
   pitch: 0,
   _moving: false,
 };
-player.group.position.set(0, 6, 0);
+player.group.position.set(0, FLOOR_Y, 14.5);
 scene.add(player.group);
 
 const remotes = new Map();
@@ -563,7 +740,7 @@ function addRemote(id, name, presetKey, pos) {
   if (remotes.has(id)) return;
   const preset = CHARS.find(c => c.key === presetKey) || CHARS[5];
   const g = makeCharacter(preset, name);
-  if (pos) g.position.set(pos.x, pos.y, pos.z); else g.position.set(0, 0, 6);
+  if (pos) g.position.set(pos.x, pos.y, pos.z); else g.position.set(0, FLOOR_Y, 14.5);
   scene.add(g);
   remotes.set(id, { group: g, name, preset, targetPos: g.position.clone(), targetRy: 0, lastMoving: false });
 }
@@ -763,8 +940,8 @@ function updatePlayer(dt, t) {
   const tryZ = player.group.position.z + mz*dt;
   if (canStand(player.group.position.x, tryZ)) player.group.position.z = tryZ;
 
-  player.group.position.y = Math.max(6, ny);
-  if (player.group.position.y <= 0) { player.vel.y = 0; player.onGround = true; }
+  player.group.position.y = Math.max(FLOOR_Y, ny);
+  if (player.group.position.y <= FLOOR_Y) { player.vel.y = 0; player.onGround = true; }
   player.group.rotation.y = player.yaw + Math.PI;
 
   player._moving = mag > 0.1;
@@ -787,28 +964,36 @@ function updatePlayer(dt, t) {
   maybeBroadcastPos(t);
 }
 
+function pointInRect(x, z, r) {
+  return x > r.minX && x < r.maxX && z > r.minZ && z < r.maxZ;
+}
+
 function canStand(x, z) {
-  return x > BOUNDS.minX && x < BOUNDS.maxX && z > BOUNDS.minZ && z < BOUNDS.maxZ;
+  if (x <= BOUNDS.minX || x >= BOUNDS.maxX || z <= BOUNDS.minZ || z >= BOUNDS.maxZ) return false;
+  for (const r of BLOCKERS) if (pointInRect(x, z, r)) return false;
+  return true;
 }
 
 function updateCamera() {
   const head = player.group.position.clone();
   head.y += 2.9;
+  const CEIL_Y = 8.2;
   if (viewMode === 'first') {
     camera.position.copy(head);
-    camera.position.x += Math.sin(player.yaw)*0.1;
-    camera.position.z += Math.cos(player.yaw)*0.1;
+    camera.position.x += Math.sin(player.yaw) * 0.1;
+    camera.position.z += Math.cos(player.yaw) * 0.1;
+    camera.position.y = Math.min(camera.position.y, CEIL_Y);
     camera.lookAt(
-      head.x - Math.sin(player.yaw)*Math.cos(player.pitch),
+      head.x - Math.sin(player.yaw) * Math.cos(player.pitch),
       head.y + Math.sin(player.pitch),
-      head.z - Math.cos(player.yaw)*Math.cos(player.pitch)
+      head.z - Math.cos(player.yaw) * Math.cos(player.pitch)
     );
   } else {
-    const dist = 5;
+    const dist = 5.4;
     camera.position.set(
-      head.x + Math.sin(player.yaw)*dist*Math.cos(player.pitch),
-      head.y - Math.sin(player.pitch)*dist + 1.5,
-      head.z + Math.cos(player.yaw)*dist*Math.cos(player.pitch)
+      head.x + Math.sin(player.yaw) * dist * Math.cos(player.pitch),
+      Math.min(head.y - Math.sin(player.pitch) * dist + 1.5, CEIL_Y),
+      head.z + Math.cos(player.yaw) * dist * Math.cos(player.pitch)
     );
     camera.lookAt(head);
   }
