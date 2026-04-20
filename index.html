@@ -326,6 +326,8 @@ gltfLoader.load(
     });
 
     scene.add(roomScene);
+    window.roomScene = roomScene;
+    window._bounds = () => { const b = new THREE.Box3().setFromObject(roomScene); console.log(JSON.stringify({minX:+b.min.x.toFixed(2),maxX:+b.max.x.toFixed(2),minY:+b.min.y.toFixed(2),maxY:+b.max.y.toFixed(2),minZ:+b.min.z.toFixed(2),maxZ:+b.max.z.toFixed(2)})); };
     roomLoaded = true;
     setLoad(90, 'FINALIZING...');
     setTimeout(finishLoading, 400);
