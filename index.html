@@ -488,7 +488,7 @@ const player = {
   pitch: 0,
   _moving: false,
 };
-player.group.position.set(0, 3, 0);
+player.group.position.set(0, 6, 0);
 scene.add(player.group);
 
 const remotes = new Map();
@@ -763,7 +763,7 @@ function updatePlayer(dt, t) {
   const tryZ = player.group.position.z + mz*dt;
   if (canStand(player.group.position.x, tryZ)) player.group.position.z = tryZ;
 
-  player.group.position.y = Math.max(3, ny);
+  player.group.position.y = Math.max(6, ny);
   if (player.group.position.y <= 0) { player.vel.y = 0; player.onGround = true; }
   player.group.rotation.y = player.yaw + Math.PI;
 
