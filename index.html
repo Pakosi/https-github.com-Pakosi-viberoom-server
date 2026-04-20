@@ -155,10 +155,10 @@ canvas { display: block; }
   width:100%;
   height:100%;
   border:none;
-  pointer-events:auto;
+  pointer-events:none;
 }
 #tv-audio-join {
-  position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+  position:absolute; right:14px; bottom:18px;
   z-index:22; display:none;
   background: rgba(10,12,18,0.92);
   color:#e8b96a; border:1px solid #c89b4a; border-radius:10px;
@@ -192,8 +192,8 @@ canvas { display: block; }
 
   <div id="hud" style="display:none;">
     <div><b>WASD</b>/joystick · <b>SPACE</b> jump</div>
-    <div><b>E</b> interact · <b>T</b> chat · <b>V</b> view</div>
-    <div><b>SHIFT</b> run · <b>M</b> mic</div>
+    <div><b>E</b> interact · <b>T</b> chat · <b>V</b> TV audio</div>
+    <div><b>SHIFT</b> run · <b>C</b> view · <b>M</b> mic</div>
   </div>
   <div id="top-right" style="display:none;">
     <div class="badge" id="view-badge">3RD · TAP</div>
@@ -317,7 +317,7 @@ canvas { display: block; }
   </div>
 
   <div id="tv-overlay"><iframe id="tv-iframe" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
-  <button id="tv-audio-join">JOIN TV AUDIO</button>
+  <button id="tv-audio-join">V / ♪ JOIN TV AUDIO</button>
 
   <div id="mobile-ctrls">
     <div id="joystick"><div id="joy-knob"></div></div>
@@ -325,6 +325,9 @@ canvas { display: block; }
       <div class="row">
         <button id="btn-mic">🎤</button>
         <button id="btn-view">👁</button>
+      </div>
+      <div class="row">
+        <button id="btn-music">♪</button>
       </div>
       <div class="row">
         <button id="btn-t">💬</button>
@@ -518,22 +521,22 @@ function makeCityTexture() {
     }
   });
 }
-function makeMarbleTexture() {
+function makeMarbleTexture(base='#0b0d12', veinA='rgba(230,230,230,0.08)', veinB='rgba(185,155,100,0.07)', grid='rgba(255,255,255,0.05)') {
   const t = canvasTex(1024, 1024, (ctx, w, h) => {
-    ctx.fillStyle = '#0b0d12';
+    ctx.fillStyle = base;
     ctx.fillRect(0,0,w,h);
     for (let i = 0; i < 850; i++) {
       const x = Math.random() * w, y = Math.random() * h;
       const len = 14 + Math.random() * 90;
       const a = Math.random() * Math.PI * 2;
-      ctx.strokeStyle = `rgba(${185+Math.random()*45},${155+Math.random()*35},${100+Math.random()*25},${0.025+Math.random()*0.05})`;
+      ctx.strokeStyle = Math.random() < 0.55 ? veinA : veinB;
       ctx.lineWidth = 0.8 + Math.random() * 2.5;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x + Math.cos(a)*len, y + Math.sin(a)*len);
       ctx.stroke();
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.strokeStyle = grid;
     for (let i = 1; i < 8; i++) {
       ctx.beginPath(); ctx.moveTo(i*w/8, 0); ctx.lineTo(i*w/8, h); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(0, i*h/8); ctx.lineTo(w, i*h/8); ctx.stroke();
@@ -651,7 +654,7 @@ function addSpot(x,y,z,color,intensity=1,distance=22,angle=Math.PI/5,targetY=0) 
 }
 
 // ==================== MATERIALS / TEXTURES ====================
-const marbleTex = makeMarbleTexture();
+let marbleTex = makeMarbleTexture();
 let wallTex = makeWallTexture();
 const cityTex = makeCityTexture();
 const fifaScreenTex = makeFifaTexture();
@@ -725,6 +728,8 @@ let mediaScreenTex = null;
 let tvCreated = false;
 let tvStartedByUser = false;
 let wallMaterials = [];
+let floorMaterials = [];
+let mediaFrameMaterials = [];
 let vibeStripMaterials = [];
 let vibeGlowMaterials = [];
 let tvOverlay = null;
@@ -799,10 +804,10 @@ function placeTVOverlay() {
   if (!tvCreated || !mediaScreenMesh || !hostState.media.videoId) return;
 
   const corners = [
-    new THREE.Vector3(-4.8,  2.55, 0.13),
-    new THREE.Vector3( 4.8,  2.55, 0.13),
-    new THREE.Vector3(-4.8, -2.55, 0.13),
-    new THREE.Vector3( 4.8, -2.55, 0.13)
+    new THREE.Vector3(-4.8,  2.55, 0),
+    new THREE.Vector3( 4.8,  2.55, 0),
+    new THREE.Vector3(-4.8, -2.55, 0),
+    new THREE.Vector3( 4.8, -2.55, 0)
   ];
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -823,10 +828,13 @@ function placeTVOverlay() {
     return;
   }
 
-  tvOverlay.style.left = Math.round(minX) + 'px';
-  tvOverlay.style.top = Math.round(minY) + 'px';
-  tvOverlay.style.width = Math.round(maxX - minX) + 'px';
-  tvOverlay.style.height = Math.round(maxY - minY) + 'px';
+  const width = Math.max(180, maxX - minX - 4);
+  const height = Math.max(100, maxY - minY - 4);
+
+  tvOverlay.style.left = (minX + 2) + 'px';
+  tvOverlay.style.top = (minY + 2) + 'px';
+  tvOverlay.style.width = width + 'px';
+  tvOverlay.style.height = height + 'px';
   tvOverlay.style.display = 'block';
 }
 function syncTVPlayback() {
@@ -844,6 +852,15 @@ function syncTVPlayback() {
   placeTVOverlay();
   drawMediaScreen();
 }
+
+function joinTVAudioAnywhere() {
+  if (!hostState.media.videoId) {
+    addChat('System', '*No TV audio to join right now*', '#e8b96a');
+    return;
+  }
+  startTVPlayback(true);
+}
+
 function startTVPlayback(withAudio=true) {
   ensureTVDom();
   if (!tvCreated || !hostState.media.videoId) return;
@@ -869,23 +886,36 @@ function isHostUser() {
 }
 function applyVibe(mode) {
   activeVibe = mode;
-  let wallTint = 0xe8d7c5, floorTint = 0xffffff, frameTint = 0x2b313a;
+  let brickA = '#6a4129', brickB = '#472918', mortar = '#26170f';
+  let floorBase = '#0b0d12', veinA = 'rgba(240,240,240,0.08)', veinB = 'rgba(185,155,100,0.07)', grid = 'rgba(255,255,255,0.05)';
   let bg = 0x0a0d14, fog = MOBILE ? 0.0022 : 0.0035, expo = MOBILE ? 1.75 : 1.95;
   let keyColor = 0xfff4d8, purple = 0x5e47ff, gold = 0xe8b96a, stripA = 0xe8b96a, stripB = 0x6a78ff;
-  let sculptureEmissive = 0x4a2400;
+  let sculptureEmissive = 0x4a2400, mediaFrameColor = 0x2b313a, floorTint = 0xffffff;
 
   if (mode === 'war') {
-    wallTint = 0xb7bea1; floorTint = 0xe7efe2; frameTint = 0x253128;
-    bg = 0x0b1117; fog = MOBILE ? 0.0026 : 0.0040; expo = MOBILE ? 1.62 : 1.8;
+    brickA = '#5d6358'; brickB = '#383d35'; mortar = '#1c1f1a';
+    floorBase = '#171a1e'; veinA = 'rgba(255,255,255,0.05)'; veinB = 'rgba(120,255,160,0.05)'; grid = 'rgba(255,255,255,0.03)';
+    bg = 0x0b1117; fog = MOBILE ? 0.0028 : 0.0041; expo = MOBILE ? 1.64 : 1.82;
     keyColor = 0xe7f4d6; purple = 0x2cb35f; gold = 0xa9ff87; stripA = 0xb7ff80; stripB = 0x4cff9d; sculptureEmissive = 0x123d12;
+    mediaFrameColor = 0x2b3a31; floorTint = 0xe7f0ea;
   } else if (mode === 'after') {
-    wallTint = 0xd58b96; floorTint = 0xfff0f3; frameTint = 0x3a202d;
-    bg = 0x180910; fog = MOBILE ? 0.0017 : 0.0028; expo = MOBILE ? 1.92 : 2.15;
+    brickA = '#6c2d33'; brickB = '#3e1619'; mortar = '#1e0d0f';
+    floorBase = '#130b12'; veinA = 'rgba(255,220,220,0.07)'; veinB = 'rgba(180,90,255,0.08)'; grid = 'rgba(255,255,255,0.025)';
+    bg = 0x180910; fog = MOBILE ? 0.0017 : 0.0028; expo = MOBILE ? 1.92 : 2.14;
     keyColor = 0xffe9da; purple = 0xb84cff; gold = 0xff7b5d; stripA = 0xff9966; stripB = 0xa668ff; sculptureEmissive = 0x5a1430;
+    mediaFrameColor = 0x3a2330; floorTint = 0xfff2f8;
   } else if (mode === 'game') {
-    wallTint = 0xf0c070; floorTint = 0xfffbef; frameTint = 0x313520;
+    brickA = '#7a5224'; brickB = '#4f2d12'; mortar = '#2a180d';
+    floorBase = '#071019'; veinA = 'rgba(120,220,255,0.08)'; veinB = 'rgba(255,220,80,0.08)'; grid = 'rgba(255,255,255,0.035)';
     bg = 0x0b1118; fog = MOBILE ? 0.0019 : 0.0030; expo = MOBILE ? 1.88 : 2.1;
     keyColor = 0xf8f2df; purple = 0x2f78ff; gold = 0xffcc42; stripA = 0xffcf56; stripB = 0x46a2ff; sculptureEmissive = 0x4d2b00;
+    mediaFrameColor = 0x203247; floorTint = 0xf7fbff;
+  } else if (mode === 'chill') {
+    brickA = '#6a4129'; brickB = '#472918'; mortar = '#26170f';
+    floorBase = '#0b0d12'; veinA = 'rgba(240,240,240,0.08)'; veinB = 'rgba(185,155,100,0.07)'; grid = 'rgba(255,255,255,0.05)';
+    bg = 0x0a0d14; fog = MOBILE ? 0.0022 : 0.0035; expo = MOBILE ? 1.75 : 1.95;
+    keyColor = 0xfff4d8; purple = 0x5e47ff; gold = 0xe8b96a; stripA = 0xe8b96a; stripB = 0x6a78ff; sculptureEmissive = 0x4a2400;
+    mediaFrameColor = 0x2b313a; floorTint = 0xffffff;
   }
 
   scene.background.setHex(bg);
@@ -895,11 +925,23 @@ function applyVibe(mode) {
   purpleFill.color.setHex(purple);
   goldFill.color.setHex(gold);
 
+  wallTex = makeWallTexture(brickA, brickB, mortar);
   for (const m of wallMaterials) {
-    if (m.color) m.color.setHex(wallTint);
+    m.map = wallTex;
+    m.needsUpdate = true;
   }
-  if (floorMat && floorMat.color) floorMat.color.setHex(floorTint);
-  if (mediaFrameMat && mediaFrameMat.color) mediaFrameMat.color.setHex(frameTint);
+
+  marbleTex = makeMarbleTexture(floorBase, veinA, veinB, grid);
+  for (const m of floorMaterials) {
+    m.map = marbleTex;
+    m.color.setHex(floorTint);
+    m.needsUpdate = true;
+  }
+
+  for (const m of mediaFrameMaterials) {
+    m.color.setHex(mediaFrameColor);
+    m.needsUpdate = true;
+  }
 
   for (let i = 0; i < vibeStripMaterials.length; i++) {
     vibeStripMaterials[i].color.setHex(i % 2 === 0 ? stripA : stripB);
