@@ -60,9 +60,19 @@ canvas { display: block; }
   display: block; margin: 10px auto 0; background: #1a1510; color: #e8b96a; border: 1px solid #c89b4a;
   padding: 8px 16px; font-family: inherit; cursor: pointer; font-size: 11px; letter-spacing: 2px; border-radius: 3px;
 }
-#fifa-panel, #basketball-panel { width: min(420px, 94vw); text-align:center; }
+#fifa-panel, #basketball-panel { width: min(460px, 96vw); text-align:center; }
 .mini-score { color:#e8b96a; font-size:16px; margin: 12px 0; }
 .mini-sub { color:#a89878; font-size:11px; line-height:1.5; }
+.game-canvas { display:block; width:100%; max-width:400px; height:auto; margin:10px auto; background:#090909; border:1px solid #c89b4a; border-radius:4px; }
+.meter-wrap { width:min(360px, 88vw); height:14px; background:#0f0b07; border:1px solid #c89b4a; margin:8px auto; position:relative; border-radius:8px; overflow:hidden; }
+.meter-green { position:absolute; top:0; bottom:0; background:rgba(122,223,154,0.35); }
+.meter-marker { position:absolute; top:0; bottom:0; width:8px; background:#e8b96a; box-shadow:0 0 10px rgba(232,185,106,0.8); }
+.game-row { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:8px; }
+.game-row button {
+  background:#1a1510; color:#e8b96a; border:1px solid #c89b4a; padding:8px 14px; font-family:inherit; font-size:11px; cursor:pointer; letter-spacing:2px; border-radius:4px;
+}
+.status-good { color:#7adf9a; }
+.status-bad { color:#ff8d8d; }
 
 /* Start screen */
 #start { position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, #3a1e4a 0%, #1a0e28 40%, #050308 100%); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 100; padding: 30px 15px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -201,20 +211,41 @@ canvas { display: block; }
 
   <div class="panel" id="fifa-panel">
     <button class="close">✕</button>
-    <h2>◆ PS5 FIFA ◆</h2>
-    <div class="mini-score" id="fifa-score">HOME 0 - 0 AWAY</div>
-    <div class="mini-sub">Smash shoot to run a fake-highlight attack. Ridiculous, yes. Better than a blank wall, also yes.</div>
-    <button id="fifa-shoot">ATTACK</button>
-    <button id="fifa-reset">RESET</button>
+    <h2>◆ PS5 FIFA PENALTY NIGHT ◆</h2>
+    <div class="mini-score" id="fifa-score">SCORED: 0 / 0</div>
+    <canvas id="fifa-canvas" class="game-canvas" width="400" height="220"></canvas>
+    <div class="mini-sub" id="fifa-msg">Press START, then lock power and curve. Beat the keeper, because pressing one button was embarrassingly lazy.</div>
+    <div class="meter-wrap" id="fifa-power-wrap">
+      <div class="meter-green" style="left:42%; width:16%;"></div>
+      <div class="meter-marker" id="fifa-power-marker" style="left:0%;"></div>
+    </div>
+    <div class="meter-wrap" id="fifa-curve-wrap">
+      <div class="meter-green" style="left:44%; width:12%;"></div>
+      <div class="meter-marker" id="fifa-curve-marker" style="left:0%;"></div>
+    </div>
+    <div class="game-row">
+      <button id="fifa-start">START</button>
+      <button id="fifa-lock-power">LOCK POWER</button>
+      <button id="fifa-lock-curve">LOCK CURVE</button>
+      <button id="fifa-reset">RESET</button>
+    </div>
   </div>
 
   <div class="panel" id="basketball-panel">
     <button class="close">✕</button>
-    <h2>◆ BASKETBALL ◆</h2>
-    <div class="mini-score" id="ball-score">MADE: 0 / 0</div>
-    <div class="mini-sub">Tap shoot. 60% make chance because apparently realism is optional in luxury nonsense rooms.</div>
-    <button id="ball-shoot">SHOOT</button>
-    <button id="ball-reset">RESET</button>
+    <h2>◆ BASKETBALL SHOOTOUT ◆</h2>
+    <div class="mini-score" id="ball-score">MADE: 0 / 0 · STREAK: 0</div>
+    <canvas id="ball-canvas" class="game-canvas" width="400" height="220"></canvas>
+    <div class="mini-sub" id="ball-msg">Press START, then SHOOT when the marker hits green. Too early or too late and your digital brick joins the collection.</div>
+    <div class="meter-wrap" id="ball-meter-wrap">
+      <div class="meter-green" style="left:46%; width:10%;"></div>
+      <div class="meter-marker" id="ball-meter-marker" style="left:0%;"></div>
+    </div>
+    <div class="game-row">
+      <button id="ball-start">START</button>
+      <button id="ball-shoot">SHOOT</button>
+      <button id="ball-reset">RESET</button>
+    </div>
   </div>
 
   <div id="admin-panel">
@@ -465,19 +496,39 @@ function makeMarbleTexture() {
 }
 function makeWallTexture() {
   const t = canvasTex(1024, 512, (ctx, w, h) => {
-    const g = ctx.createLinearGradient(0,0,0,h);
-    g.addColorStop(0,'#161923');
-    g.addColorStop(1,'#0a0d14');
-    ctx.fillStyle = g;
+    ctx.fillStyle = '#5c3b2a';
     ctx.fillRect(0,0,w,h);
-    for (let i = 0; i < 14; i++) {
-      ctx.fillStyle = i%2 ? 'rgba(255,255,255,0.018)' : 'rgba(255,255,255,0.035)';
-      ctx.fillRect(i*w/14, 0, 10, h);
+
+    const brickH = 44;
+    const brickW = 110;
+    for (let y = 0; y < h; y += brickH) {
+      const offset = ((y / brickH) % 2) * (brickW / 2);
+      for (let x = -brickW; x < w + brickW; x += brickW) {
+        const bx = x + offset;
+                ctx.fillStyle = `rgb(${98 + ((x+y) % 18)}, ${58 + ((x*y) % 14)}, ${40 + ((x+y) % 10)})`;
+        ctx.fillRect(bx + 2, y + 2, brickW - 4, brickH - 4);
+
+        const g = ctx.createLinearGradient(bx, y, bx + brickW, y + brickH);
+        g.addColorStop(0, 'rgba(255,220,180,0.10)');
+        g.addColorStop(1, 'rgba(0,0,0,0.12)');
+        ctx.fillStyle = g;
+        ctx.fillRect(bx + 2, y + 2, brickW - 4, brickH - 4);
+      }
     }
-    ctx.fillStyle = 'rgba(232,185,106,0.05)';
-    ctx.fillRect(0, h-20, w, 12);
+
+    ctx.fillStyle = 'rgba(24,12,8,0.45)';
+    for (let y = 0; y < h; y += brickH) ctx.fillRect(0, y, w, 2);
+    for (let y = 0; y < h; y += brickH) {
+      const offset = ((y / brickH) % 2) * (brickW / 2);
+      for (let x = -brickW; x < w + brickW; x += brickW) {
+        ctx.fillRect(x + offset, y, 2, brickH);
+      }
+    }
+
+    ctx.fillStyle = 'rgba(232,185,106,0.08)';
+    ctx.fillRect(0, h - 18, w, 10);
   });
-  t.repeat.set(4, 1);
+  t.repeat.set(3, 1.4);
   return t;
 }
 function makeSnakeScreenTexture() {
@@ -735,7 +786,7 @@ function buildCustomRoom() {
 
   const leftWall = new THREE.Mesh(
     new THREE.BoxGeometry(0.45, 10, 30),
-    new THREE.MeshStandardMaterial({ map: wallTex, color: 0xe8e8e8, roughness: 0.9, metalness: 0.05 })
+    new THREE.MeshStandardMaterial({ map: wallTex, color: 0xffffff, roughness: 0.76, metalness: 0.04 })
   );
   leftWall.position.set(-22, 5, 0);
   roomGroup.add(leftWall);
@@ -746,7 +797,7 @@ function buildCustomRoom() {
 
   const backWall = new THREE.Mesh(
     new THREE.BoxGeometry(44, 10, 0.45),
-    new THREE.MeshStandardMaterial({ map: wallTex, color: 0xf2f2f2, roughness: 0.9, metalness: 0.05 })
+    new THREE.MeshStandardMaterial({ map: wallTex, color: 0xffffff, roughness: 0.76, metalness: 0.04 })
   );
   backWall.position.set(0, 5, 15);
   roomGroup.add(backWall);
@@ -1748,32 +1799,225 @@ function checkTTT(p){const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0
 document.getElementById('ttt-reset').onclick=resetTTT;
 
 // ==================== FIFA PANEL ====================
-let fifaHome = 0, fifaAway = 0;
+let fifaShots = 0, fifaGoals = 0;
+let fifaPowerPos = 0, fifaPowerDir = 1, fifaCurvePos = 0, fifaCurveDir = 1;
+let fifaStage = 'idle';
+let fifaPowerValue = 0.5, fifaCurveValue = 0.5;
+let fifaAnim = null;
+const fifaCanvas = document.getElementById('fifa-canvas');
+const fifaCtx = fifaCanvas.getContext('2d');
+const fifaPowerMarker = document.getElementById('fifa-power-marker');
+const fifaCurveMarker = document.getElementById('fifa-curve-marker');
+const fifaMsg = document.getElementById('fifa-msg');
+
 function updateFifaScore() {
-  document.getElementById('fifa-score').textContent = `HOME ${fifaHome} - ${fifaAway} AWAY`;
-  if (fifaScreenTex && fifaScreenTex.dispose) fifaScreenTex.dispose();
+  document.getElementById('fifa-score').textContent = `SCORED: ${fifaGoals} / ${fifaShots}`;
 }
-document.getElementById('fifa-shoot').onclick = () => {
-  if (Math.random() < 0.55) fifaHome++; else fifaAway++;
-  updateFifaScore();
+function drawFifaScene(ball=null, keeperX=0.5, shotTarget=null) {
+  const ctx = fifaCtx, w = fifaCanvas.width, h = fifaCanvas.height;
+  ctx.fillStyle = '#173f1f'; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle = '#21592c'; ctx.fillRect(0,h*0.35,w,h*0.65);
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3;
+  ctx.strokeRect(90,22,220,90);
+  ctx.beginPath(); ctx.moveTo(200,112); ctx.lineTo(200,200); ctx.stroke();
+  // net grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  for (let x=110;x<=290;x+=20){ctx.beginPath();ctx.moveTo(x,22);ctx.lineTo(x,112);ctx.stroke();}
+  for (let y=40;y<=100;y+=15){ctx.beginPath();ctx.moveTo(90,y);ctx.lineTo(310,y);ctx.stroke();}
+
+  // keeper
+  const gx = 90 + keeperX * 220;
+  ctx.fillStyle = '#f0f0f0';
+  ctx.fillRect(gx-12, 55, 24, 38);
+  ctx.fillStyle = '#4d90c8';
+  ctx.fillRect(gx-18, 92, 36, 16);
+
+  // target marker
+  if (shotTarget) {
+    ctx.strokeStyle = 'rgba(232,185,106,0.8)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(shotTarget.x-10, shotTarget.y-10, 20, 20);
+  }
+
+  // ball
+  let bx = 200, by = 186;
+  if (ball) { bx = ball.x; by = ball.y; }
+  ctx.fillStyle = '#fff6d8';
+  ctx.beginPath(); ctx.arc(bx, by, 8, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5; ctx.stroke();
+}
+function setFifaMarkers() {
+  fifaPowerMarker.style.left = `${fifaPowerPos * 100}%`;
+  fifaCurveMarker.style.left = `${fifaCurvePos * 100}%`;
+}
+function fifaTickMeters() {
+  if (document.getElementById('fifa-panel').style.display !== 'block') return;
+  if (fifaStage === 'power') {
+    fifaPowerPos += fifaPowerDir * 0.018;
+    if (fifaPowerPos >= 0.96 || fifaPowerPos <= 0.0) fifaPowerDir *= -1;
+  } else if (fifaStage === 'curve') {
+    fifaCurvePos += fifaCurveDir * 0.02;
+    if (fifaCurvePos >= 0.96 || fifaCurvePos <= 0.0) fifaCurveDir *= -1;
+  }
+  setFifaMarkers();
+}
+setInterval(fifaTickMeters, 16);
+
+function startFifaRound() {
+  fifaStage = 'power';
+  fifaPowerPos = 0.08; fifaCurvePos = 0.12;
+  fifaPowerDir = 1; fifaCurveDir = 1;
+  fifaMsg.textContent = 'Lock power first, then lock curve.';
+  drawFifaScene();
+  setFifaMarkers();
+}
+function animateFifaShot() {
+  fifaShots++;
+  const targetX = 110 + fifaCurveValue * 180;
+  const targetY = 38 + (1 - fifaPowerValue) * 52;
+  const keeperTarget = Math.random();
+  const saveBias = Math.abs(keeperTarget - fifaCurveValue);
+  const isGoal = !(saveBias < 0.12 && fifaPowerValue > 0.3 && fifaPowerValue < 0.88);
+
+  let t = 0;
+  fifaStage = 'anim';
+  fifaMsg.innerHTML = isGoal ? '<span class="status-good">GOAL</span>' : '<span class="status-bad">SAVED / MISSED</span>';
+  function step() {
+    t += 0.035;
+    const bx = 200 + (targetX - 200) * t;
+    const by = 186 + (targetY - 186) * t - Math.sin(t * Math.PI) * 34 * fifaPowerValue;
+    drawFifaScene({x:bx, y:by}, keeperTarget, {x:targetX, y:targetY});
+    if (t < 1) {
+      requestAnimationFrame(step);
+    } else {
+      if (isGoal) fifaGoals++;
+      updateFifaScore();
+      fifaStage = 'idle';
+    }
+  }
+  step();
+}
+document.getElementById('fifa-start').onclick = startFifaRound;
+document.getElementById('fifa-lock-power').onclick = () => {
+  if (fifaStage !== 'power') return;
+  fifaPowerValue = fifaPowerPos;
+  fifaStage = 'curve';
+  fifaMsg.textContent = 'Now lock curve.';
+};
+document.getElementById('fifa-lock-curve').onclick = () => {
+  if (fifaStage !== 'curve') return;
+  fifaCurveValue = fifaCurvePos;
+  animateFifaShot();
 };
 document.getElementById('fifa-reset').onclick = () => {
-  fifaHome = 0; fifaAway = 0; updateFifaScore();
+  fifaShots = 0; fifaGoals = 0; fifaStage = 'idle';
+  fifaPowerValue = 0.5; fifaCurveValue = 0.5;
+  updateFifaScore();
+  fifaMsg.textContent = 'Press START, then lock power and curve. Beat the keeper, because pressing one button was embarrassingly lazy.';
+  drawFifaScene();
+  setFifaMarkers();
 };
+drawFifaScene();
+setFifaMarkers();
+updateFifaScore();
 
 // ==================== BASKETBALL PANEL ====================
-let ballMade = 0, ballTaken = 0;
+let ballMade = 0, ballTaken = 0, ballStreak = 0;
+let ballMeterPos = 0.08, ballMeterDir = 1, ballStage = 'idle';
+const ballCanvas = document.getElementById('ball-canvas');
+const ballCtx = ballCanvas.getContext('2d');
+const ballMarker = document.getElementById('ball-meter-marker');
+const ballMsg = document.getElementById('ball-msg');
+
 function updateBallScore() {
-  document.getElementById('ball-score').textContent = `MADE: ${ballMade} / ${ballTaken}`;
+  document.getElementById('ball-score').textContent = `MADE: ${ballMade} / ${ballTaken} · STREAK: ${ballStreak}`;
 }
-document.getElementById('ball-shoot').onclick = () => {
+function drawBasketScene(ball=null, resultText='') {
+  const ctx = ballCtx, w = ballCanvas.width, h = ballCanvas.height;
+  ctx.fillStyle = '#101317'; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle = '#1d232b'; ctx.fillRect(0,h*0.62,w,h*0.38);
+  ctx.strokeStyle = '#d9a15c'; ctx.lineWidth = 3;
+  ctx.strokeRect(300,28,56,38);
+  ctx.fillStyle = '#f0f0f0'; ctx.fillRect(296,26,64,42);
+  ctx.strokeStyle = '#ff6a2f'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(328,78,16,0,Math.PI*2); ctx.stroke();
+  ctx.fillStyle = '#3a434f'; ctx.fillRect(324,66,8,80);
+
+  // guide arc
+  ctx.strokeStyle = 'rgba(232,185,106,0.16)';
+  ctx.beginPath(); ctx.moveTo(60,170); ctx.quadraticCurveTo(180,20,328,78); ctx.stroke();
+
+  let bx=60, by=170;
+  if (ball) { bx=ball.x; by=ball.y; }
+  ctx.fillStyle = '#db7b2a';
+  ctx.beginPath(); ctx.arc(bx, by, 11, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#5a2b00'; ctx.lineWidth = 2; ctx.stroke();
+
+  if (resultText) {
+    ctx.fillStyle = '#f2e4c8';
+    ctx.font = 'bold 28px Arial';
+    ctx.fillText(resultText, 24, 36);
+  }
+}
+function setBallMarker() {
+  ballMarker.style.left = `${ballMeterPos * 100}%`;
+}
+function ballTickMeter() {
+  if (document.getElementById('basketball-panel').style.display !== 'block') return;
+  if (ballStage !== 'ready') return;
+  ballMeterPos += ballMeterDir * 0.02;
+  if (ballMeterPos >= 0.96 || ballMeterPos <= 0.0) ballMeterDir *= -1;
+  setBallMarker();
+}
+setInterval(ballTickMeter, 16);
+
+function startBallRound() {
+  ballStage = 'ready';
+  ballMeterPos = 0.08; ballMeterDir = 1;
+  ballMsg.textContent = 'Shoot when the marker hits green.';
+  drawBasketScene();
+  setBallMarker();
+}
+function animateBallShot(quality) {
   ballTaken++;
-  if (Math.random() < 0.6) ballMade++;
-  updateBallScore();
+  const made = quality > 0.84 || (quality > 0.7 && Math.random() < 0.72);
+  if (made) { ballMade++; ballStreak++; } else { ballStreak = 0; }
+  ballStage = 'anim';
+  let t = 0;
+  function step() {
+    t += 0.032;
+    const bx = 60 + (328 - 60) * t;
+    const arcHeight = made ? 118 : (quality > 0.5 ? 90 : 62);
+    const by = 170 + (78 - 170) * t - Math.sin(t * Math.PI) * arcHeight;
+    drawBasketScene({x:bx, y:by}, made ? 'SWISH' : 'BRICK');
+    if (t < 1) requestAnimationFrame(step);
+    else {
+      updateBallScore();
+      ballMsg.innerHTML = made
+        ? '<span class="status-good">Bucket. Again.</span>'
+        : '<span class="status-bad">Brick. Tragic.</span>';
+      ballStage = 'idle';
+    }
+  }
+  step();
+}
+document.getElementById('ball-start').onclick = startBallRound;
+document.getElementById('ball-shoot').onclick = () => {
+  if (ballStage !== 'ready') return;
+  const dist = Math.abs(ballMeterPos - 0.5);
+  const quality = Math.max(0, 1 - dist * 3.2);
+  animateBallShot(quality);
 };
 document.getElementById('ball-reset').onclick = () => {
-  ballMade = 0; ballTaken = 0; updateBallScore();
+  ballMade = 0; ballTaken = 0; ballStreak = 0; ballStage = 'idle';
+  updateBallScore();
+  ballMsg.textContent = 'Press START, then SHOOT when the marker hits green. Too early or too late and your digital brick joins the collection.';
+  drawBasketScene();
+  setBallMarker();
 };
+drawBasketScene();
+setBallMarker();
+updateBallScore();
 
 // ==================== SNAKE ====================
 const arcadeCanvas=document.getElementById('arcade-canvas'), actx=arcadeCanvas.getContext('2d');
