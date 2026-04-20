@@ -139,6 +139,33 @@ canvas { display: block; }
 #host-panel .host-info { color:#b8b2a5; font:11px/1.5 monospace; min-height:32px; margin-top:4px; text-align:center; }
 
 
+
+/* Phase 2 media wall overlay */
+#tv-overlay {
+  position: absolute;
+  display: none;
+  z-index: 18;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 6px;
+  box-shadow: 0 0 40px rgba(0,0,0,0.55), 0 0 18px rgba(232,185,106,0.25);
+  background: #000;
+}
+#tv-overlay iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  pointer-events: auto;
+}
+#tv-audio-join {
+  position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+  z-index:22; display:none;
+  background: rgba(10,12,18,0.92);
+  color:#e8b96a; border:1px solid #c89b4a; border-radius:10px;
+  padding:10px 14px; font:12px/1.2 monospace; cursor:pointer;
+}
+#host-media-url { width:100%; margin-bottom:8px; }
+
 </style>
 </head>
 <body>
@@ -268,6 +295,7 @@ canvas { display: block; }
   </div>
 
   
+  
   <div id="host-panel">
     <button id="host-close">✕</button>
     <h3>◆ HOST CONSOLE ◆</h3>
@@ -277,12 +305,20 @@ canvas { display: block; }
       <button class="host-accent" data-vibe="after">AFTER HOURS</button>
       <button class="host-accent" data-vibe="game">GAME NIGHT</button>
     </div>
+    <input id="host-media-url" placeholder="Paste YouTube URL or video ID">
+    <div class="host-row">
+      <button id="host-load-media" class="host-accent" style="flex:1;">LOAD WALL TV</button>
+      <button id="host-stop-media" style="flex:1;">STOP TV</button>
+    </div>
     <div class="host-row">
       <button id="host-money-rain" style="flex:1;">MONEY RAIN</button>
       <button id="host-pulse" style="flex:1;">PULSE</button>
     </div>
-    <div class="host-info" id="host-info">Pax can control room vibe and trigger room events from here.</div>
+    <div class="host-info" id="host-info">Pax can control vibe, events, and the wall TV from here.</div>
   </div>
+
+  <div id="tv-overlay"><iframe id="tv-iframe" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+  <button id="tv-audio-join">JOIN TV AUDIO</button>
 
 <div id="mobile-ctrls">
     <div id="joystick"><div id="joy-knob"></div></div>
@@ -507,21 +543,49 @@ function makeMarbleTexture() {
   t.repeat.set(5, 3);
   return t;
 }
-function makeWallTexture() {
+function makeWallTexture(baseA='#5d3a25', baseB='#3f2416', mortar='#2a1a12') {
   const t = canvasTex(1024, 512, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0,0,0,h);
-    g.addColorStop(0,'#161923');
-    g.addColorStop(1,'#0a0d14');
+    g.addColorStop(0, baseA);
+    g.addColorStop(1, baseB);
     ctx.fillStyle = g;
     ctx.fillRect(0,0,w,h);
-    for (let i = 0; i < 14; i++) {
-      ctx.fillStyle = i%2 ? 'rgba(255,255,255,0.018)' : 'rgba(255,255,255,0.035)';
-      ctx.fillRect(i*w/14, 0, 10, h);
+
+    const brickW = 120, brickH = 46;
+    for (let row = 0; row < Math.ceil(h/brickH)+1; row++) {
+      const y = row * brickH;
+      const offset = (row % 2) ? brickW / 2 : 0;
+      for (let col = -1; col < Math.ceil(w/brickW)+2; col++) {
+        const x = col * brickW + offset;
+        const tint = (row + col) % 2 === 0 ? 10 : -6;
+        ctx.fillStyle = `rgb(${96+tint}, ${58+tint//2}, ${34+tint//3})`;
+        ctx.fillRect(x+2, y+2, brickW-4, brickH-4);
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(x+6, y+6, brickW-26, 6);
+      }
     }
-    ctx.fillStyle = 'rgba(232,185,106,0.05)';
-    ctx.fillRect(0, h-20, w, 12);
+
+    ctx.strokeStyle = mortar;
+    ctx.lineWidth = 4;
+    for (let row = 0; row < Math.ceil(h/brickH)+1; row++) {
+      const y = row * brickH;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      const offset = (row % 2) ? brickW / 2 : 0;
+      for (let col = -1; col < Math.ceil(w/brickW)+2; col++) {
+        const x = col * brickW + offset;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + brickH); ctx.stroke();
+      }
+    }
+
+    for (let i = 0; i < 1000; i++) {
+      ctx.fillStyle = `rgba(0,0,0,${0.02 + Math.random()*0.03})`;
+      ctx.fillRect(Math.random()*w, Math.random()*h, 2, 2);
+    }
+
+    ctx.fillStyle = 'rgba(232,185,106,0.08)';
+    ctx.fillRect(0, h-16, w, 10);
   });
-  t.repeat.set(4, 1);
+  t.repeat.set(4, 1.6);
   return t;
 }
 function makeSnakeScreenTexture() {
@@ -589,7 +653,7 @@ function addSpot(x,y,z,color,intensity=1,distance=22,angle=Math.PI/5,targetY=0) 
 
 // ==================== MATERIALS / TEXTURES ====================
 const marbleTex = makeMarbleTexture();
-const wallTex = makeWallTexture();
+let wallTex = makeWallTexture();
 const cityTex = makeCityTexture();
 const fifaScreenTex = makeFifaTexture();
 const basketFloorTex = makeBasketballTexture();
@@ -640,11 +704,13 @@ let cashStack = null;
 let centerSculpture = null;
 let tableTopDisplay = null;
 let tableInteractAnchor = new THREE.Vector3(0,0,0);
+const wallMaterials = [];
 
 
 const HOST_PREFIX = '__HOST__';
 const hostState = {
   vibe: 'chill',
+  media: { videoId: '', playing: false, startAt: 0, startedAt: 0 },
   event: null
 };
 let hostConsoleGroup = null;
@@ -654,6 +720,120 @@ let moneyRain = [];
 const moneyRainGroup = new THREE.Group();
 scene.add(moneyRainGroup);
 
+let mediaScreenMesh = null;
+let mediaScreenCanvas = null;
+let mediaScreenCtx = null;
+let mediaScreenTex = null;
+let tvCreated = false;
+let tvReady = false;
+let tvStartedByUser = false;
+const tvOverlay = document.getElementById('tv-overlay');
+const tvIframe = document.getElementById('tv-iframe');
+const tvAudioJoin = document.getElementById('tv-audio-join');
+const vibeStripMaterials = [];
+const vibeGlowMaterials = [];
+
+
+function ytIdFrom(input) {
+  const s = String(input || '').trim();
+  if (!s) return '';
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : '';
+}
+function buildMediaScreenTexture() {
+  mediaScreenCanvas = document.createElement('canvas');
+  mediaScreenCanvas.width = 1280;
+  mediaScreenCanvas.height = 720;
+  mediaScreenCtx = mediaScreenCanvas.getContext('2d');
+  mediaScreenTex = new THREE.CanvasTexture(mediaScreenCanvas);
+  mediaScreenTex.colorSpace = THREE.SRGBColorSpace;
+  drawMediaScreen();
+}
+function drawMediaScreen() {
+  if (!mediaScreenCtx) return;
+  const ctx = mediaScreenCtx, w = mediaScreenCanvas.width, h = mediaScreenCanvas.height;
+  const g = ctx.createLinearGradient(0,0,w,h);
+  g.addColorStop(0, '#0b1020');
+  g.addColorStop(1, '#1f120d');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle = '#e8b96a';
+  ctx.lineWidth = 10;
+  ctx.strokeRect(18,18,w-36,h-36);
+  ctx.fillStyle = '#e8b96a';
+  ctx.font = 'bold 82px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('MEDIA WALL', w/2, 115);
+
+  if (hostState.media.videoId) {
+    ctx.fillStyle = '#f2e4c8';
+    ctx.font = 'bold 46px Arial';
+    ctx.fillText('LIVE YOUTUBE TV', w/2, 210);
+    ctx.font = '34px Arial';
+    ctx.fillText(hostState.media.videoId, w/2, 280);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillRect(240, 350, 800, 220);
+    ctx.fillStyle = '#d8c8a8';
+    ctx.font = '32px Arial';
+    ctx.fillText(tvStartedByUser ? 'TV IS LIVE IN ROOM' : 'TAP JOIN TV AUDIO ONCE', w/2, 460);
+    ctx.fillText('THEN WALK AROUND AND LET IT PLAY', w/2, 515);
+  } else {
+    ctx.fillStyle = '#f2e4c8';
+    ctx.font = 'bold 48px Arial';
+    ctx.fillText('HOST CONSOLE READY', w/2, 240);
+    ctx.font = '32px Arial';
+    ctx.fillText('Load a YouTube link to turn this wall into the room TV.', w/2, 320);
+  }
+  if (mediaScreenTex) mediaScreenTex.needsUpdate = true;
+}
+function ensureTVOverlay() {
+  if (!tvOverlay || !tvIframe) return;
+  tvCreated = true;
+}
+function placeTVOverlay() {
+  if (!tvCreated || !mediaScreenMesh || !hostState.media.videoId) return;
+  const p = mediaScreenMesh.getWorldPosition(new THREE.Vector3());
+  p.project(camera);
+  const visible = p.z > -1 && p.z < 1;
+  if (!visible) {
+    tvOverlay.style.display = 'none';
+    return;
+  }
+  const width = Math.max(220, Math.min(window.innerWidth * 0.36, 520));
+  const height = width * 9 / 16;
+  const x = (p.x * 0.5 + 0.5) * window.innerWidth - width / 2;
+  const y = (-p.y * 0.5 + 0.5) * window.innerHeight - height / 2;
+  tvOverlay.style.left = x + 'px';
+  tvOverlay.style.top = y + 'px';
+  tvOverlay.style.width = width + 'px';
+  tvOverlay.style.height = height + 'px';
+  tvOverlay.style.display = 'block';
+}
+function syncTVPlayback() {
+  if (!hostState.media.videoId) {
+    tvOverlay.style.display = 'none';
+    tvIframe.src = '';
+    tvAudioJoin.style.display = 'none';
+    drawMediaScreen();
+    return;
+  }
+  ensureTVOverlay();
+  placeTVOverlay();
+  tvAudioJoin.style.display = tvStartedByUser ? 'none' : 'block';
+  drawMediaScreen();
+}
+function startTVPlayback(withAudio=true) {
+  if (!hostState.media.videoId) return;
+  ensureTVOverlay();
+  const elapsed = hostState.media.playing
+    ? Math.max(0, Math.floor((Date.now() - hostState.media.startedAt) / 1000) + Math.floor(hostState.media.startAt || 0))
+    : Math.floor(hostState.media.startAt || 0);
+  const muteFlag = withAudio ? 0 : 1;
+  tvIframe.src = `https://www.youtube.com/embed/${hostState.media.videoId}?autoplay=1&playsinline=1&controls=1&rel=0&modestbranding=1&start=${elapsed}&mute=${muteFlag}`;
+  tvStartedByUser = withAudio;
+  syncTVPlayback();
+}
 function broadcastHostEvent(evt) {
   if (!wsConnected) return;
   wsSend({ type:'chat', data:{ name:'host', text: HOST_PREFIX + JSON.stringify(evt) } });
@@ -663,34 +843,50 @@ function isHostUser() {
 }
 function applyVibe(mode) {
   activeVibe = mode;
+  let brickA = '#6a4129', brickB = '#472918', mortar = '#26170f';
+  let bg = 0x0a0d14, fog = MOBILE ? 0.0022 : 0.0035, expo = MOBILE ? 1.75 : 1.95;
+  let keyColor = 0xfff4d8, purple = 0x5e47ff, gold = 0xe8b96a, stripA = 0xe8b96a, stripB = 0x6a78ff;
+  let sculptureEmissive = 0x4a2400, boardColor = 0xe8b96a;
+
   if (mode === 'war') {
-    renderer.toneMappingExposure = MOBILE ? 1.55 : 1.75;
-    scene.fog.density = MOBILE ? 0.0028 : 0.0042;
-    scene.background.setHex(0x0b1117);
-    key.color.setHex(0xf3f0dc);
-    purpleFill.color.setHex(0x3f66ff);
-    goldFill.color.setHex(0xe8b96a);
+    brickA = '#5a5c4a'; brickB = '#35392d'; mortar = '#1c1e17';
+    bg = 0x0b1117; fog = MOBILE ? 0.0026 : 0.0040; expo = MOBILE ? 1.62 : 1.8;
+    keyColor = 0xe7f4d6; purple = 0x2cb35f; gold = 0xa9ff87; stripA = 0xb7ff80; stripB = 0x4cff9d; sculptureEmissive = 0x123d12; boardColor = 0x7adf9a;
   } else if (mode === 'after') {
-    renderer.toneMappingExposure = MOBILE ? 1.8 : 2.05;
-    scene.fog.density = MOBILE ? 0.0018 : 0.003;
-    scene.background.setHex(0x140a16);
-    key.color.setHex(0xfff0da);
-    purpleFill.color.setHex(0x9a48ff);
-    goldFill.color.setHex(0xff9d66);
+    brickA = '#6c2d33'; brickB = '#3e1619'; mortar = '#1e0d0f';
+    bg = 0x180910; fog = MOBILE ? 0.0017 : 0.0028; expo = MOBILE ? 1.9 : 2.12;
+    keyColor = 0xffe9da; purple = 0xb84cff; gold = 0xff7b5d; stripA = 0xff9966; stripB = 0xa668ff; sculptureEmissive = 0x5a1430; boardColor = 0xffa772;
   } else if (mode === 'game') {
-    renderer.toneMappingExposure = MOBILE ? 1.82 : 2.1;
-    scene.fog.density = MOBILE ? 0.0019 : 0.0032;
-    scene.background.setHex(0x09101b);
-    key.color.setHex(0xf7f1df);
-    purpleFill.color.setHex(0x4c77ff);
-    goldFill.color.setHex(0xffcc64);
-  } else {
-    renderer.toneMappingExposure = MOBILE ? 1.75 : 1.95;
-    scene.fog.density = MOBILE ? 0.0022 : 0.0035;
-    scene.background.setHex(0x0a0d14);
-    key.color.setHex(0xfff4d8);
-    purpleFill.color.setHex(0x5e47ff);
-    goldFill.color.setHex(0xe8b96a);
+    brickA = '#6b4620'; brickB = '#45280f'; mortar = '#24160b';
+    bg = 0x0b1118; fog = MOBILE ? 0.0019 : 0.0030; expo = MOBILE ? 1.86 : 2.08;
+    keyColor = 0xf8f2df; purple = 0x2f78ff; gold = 0xffcc42; stripA = 0xffcf56; stripB = 0x46a2ff; sculptureEmissive = 0x4d2b00; boardColor = 0xffcf56;
+  }
+
+  scene.background.setHex(bg);
+  scene.fog.density = fog;
+  renderer.toneMappingExposure = expo;
+  key.color.setHex(keyColor);
+  purpleFill.color.setHex(purple);
+  goldFill.color.setHex(gold);
+
+  wallTex = makeWallTexture(brickA, brickB, mortar);
+  for (const m of wallMaterials) {
+    m.map = wallTex;
+    m.needsUpdate = true;
+  }
+  for (let i = 0; i < vibeStripMaterials.length; i++) {
+    const m = vibeStripMaterials[i];
+    m.color.setHex(i % 2 === 0 ? stripA : stripB);
+  }
+  for (const m of vibeGlowMaterials) {
+    if (m.color) m.color.setHex(stripB);
+  }
+  if (centerSculpture && centerSculpture.material) {
+    centerSculpture.material.emissive.setHex(sculptureEmissive);
+  }
+  if (tableTopDisplay && tableTopDisplay.material && tableTopDisplay.material.map) {
+    tableTopDisplay.material.map = makeLabelTexture('WAR TABLE', mode.toUpperCase(), boardColor === 0x7adf9a ? '#7adf9a' : '#e8b96a', '#07101a');
+    tableTopDisplay.material.needsUpdate = true;
   }
 }
 function applyHostEvent(evt, local=false) {
@@ -705,6 +901,22 @@ function applyHostEvent(evt, local=false) {
   } else if (evt.kind === 'money') {
     spawnMoneyBurst();
     if (local) document.getElementById('host-info').textContent = 'Money rain triggered.';
+  } else if (evt.kind === 'media') {
+    hostState.media.videoId = evt.videoId || '';
+    hostState.media.playing = !!evt.playing;
+    hostState.media.startAt = +evt.startAt || 0;
+    hostState.media.startedAt = +evt.startedAt || Date.now();
+    if (!hostState.media.videoId) {
+      tvIframe.src = '';
+      tvOverlay.style.display = 'none';
+      tvAudioJoin.style.display = 'none';
+      tvStartedByUser = false;
+    } else if (local) {
+      startTVPlayback(true);
+    } else {
+      syncTVPlayback();
+    }
+    document.getElementById('host-info').textContent = hostState.media.videoId ? 'Wall TV synced.' : 'Wall TV stopped.';
   }
 }
 function spawnMoneyBurst() {
@@ -868,9 +1080,11 @@ function buildCustomRoom() {
   ceiling.receiveShadow = true;
   roomGroup.add(ceiling);
 
+  const leftWallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0xe8e0d8, roughness: 0.82, metalness: 0.04 });
+  wallMaterials.push(leftWallMat);
   const leftWall = new THREE.Mesh(
     new THREE.BoxGeometry(0.45, 10, 30),
-    new THREE.MeshStandardMaterial({ map: wallTex, color: 0xe8e8e8, roughness: 0.9, metalness: 0.05 })
+    leftWallMat
   );
   leftWall.position.set(-22, 5, 0);
   roomGroup.add(leftWall);
@@ -879,9 +1093,11 @@ function buildCustomRoom() {
   rightWall.position.x = 22;
   roomGroup.add(rightWall);
 
+  const backWallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0xf2ebe0, roughness: 0.82, metalness: 0.04 });
+  wallMaterials.push(backWallMat);
   const backWall = new THREE.Mesh(
     new THREE.BoxGeometry(44, 10, 0.45),
-    new THREE.MeshStandardMaterial({ map: wallTex, color: 0xf2f2f2, roughness: 0.9, metalness: 0.05 })
+    backWallMat
   );
   backWall.position.set(0, 5, 15);
   roomGroup.add(backWall);
@@ -920,9 +1136,11 @@ function buildCustomRoom() {
   for (let i = -16; i <= 16; i += 8) {
     const strip = box(5.5, 0.08, 0.2, 0xe8b96a, 0.1, 0.5);
     strip.position.set(i, 10.02, -4);
+    vibeStripMaterials.push(strip.material);
     roomGroup.add(strip);
     const strip2 = box(5.5, 0.08, 0.2, 0x6a78ff, 0.1, 0.5);
     strip2.position.set(i, 10.02, 6);
+    vibeStripMaterials.push(strip2.material);
     roomGroup.add(strip2);
   }
 
@@ -1041,22 +1259,23 @@ function buildCustomRoom() {
   roomGroup.add(boardWallMesh);
 
   const boardGlow = box(9.4, 0.05, 0.28, 0xe8b96a, 0.05, 0.8);
+  vibeGlowMaterials.push(boardGlow.material);
   boardGlow.position.set(12.5, 1.32, -13.55);
   roomGroup.add(boardGlow);
 
-  // host mode safe wall
+  // media wall
   const mediaFrame = box(10.5, 5.8, 0.24, 0x2b313a, 0.16, 0.82);
   mediaFrame.position.set(0.0, 4.4, 14.6);
   roomGroup.add(mediaFrame);
 
-  const safeWallTex = makeLabelTexture('MEDIA WALL', 'PHASE 1 SAFE MODE', '#e8b96a', '#0b1020');
-  const safeWallMesh = new THREE.Mesh(
+  buildMediaScreenTexture();
+  mediaScreenMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(9.6, 5.1),
-    new THREE.MeshBasicMaterial({ map: safeWallTex })
+    new THREE.MeshBasicMaterial({ map: mediaScreenTex })
   );
-  safeWallMesh.position.set(0.0, 4.4, 14.46);
-  safeWallMesh.rotation.y = Math.PI;
-  roomGroup.add(safeWallMesh);
+  mediaScreenMesh.position.set(0.0, 4.4, 14.46);
+  mediaScreenMesh.rotation.y = Math.PI;
+  roomGroup.add(mediaScreenMesh);
 
   const hostConsole = new THREE.Group();
   hostConsole.position.set(-3.0, 0, -10.2);
@@ -1683,6 +1902,49 @@ document.getElementById('host-badge').addEventListener('click', () => {
 document.getElementById('host-close').addEventListener('click', () => {
   document.getElementById('host-panel').style.display = 'none';
 });
+document.querySelectorAll('#host-panel [data-vibe]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!isHostUser()) return;
+    const mode = btn.dataset.vibe;
+    const evt = { kind:'vibe', mode };
+    applyHostEvent(evt, true);
+    broadcastHostEvent(evt);
+  });
+});
+document.getElementById('host-money-rain').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'money' };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
+document.getElementById('host-pulse').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'pulse' };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
+document.getElementById('host-load-media').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const raw = document.getElementById('host-media-url').value.trim();
+  const videoId = ytIdFrom(raw);
+  if (!videoId) {
+    document.getElementById('host-info').textContent = 'Invalid YouTube URL or video ID.';
+    return;
+  }
+  const evt = { kind:'media', videoId, playing:true, startAt:0, startedAt: Date.now() };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
+document.getElementById('host-stop-media').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'media', videoId:'', playing:false, startAt:0, startedAt:0 };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
+tvAudioJoin.addEventListener('click', () => {
+  if (!hostState.media.videoId) return;
+  startTVPlayback(true);
+});
 document.querySelectorAll('#host-panel [data-vibe]').forEach(btn => btn.addEventListener('click', () => {
   if (!isHostUser()) return;
   const evt = { kind:'vibe', mode: btn.dataset.vibe };
@@ -1748,6 +2010,7 @@ function tryInteract() {
   else if (i.type === 'basketball') openPanel('basketball-panel');
   else if (i.type === 'fifa') openPanel('fifa-panel');
   else if (i.type === 'money') addChat('System', '*' + player.name + ' admires the cash pile like a true menace 💰*', '#7adf9a');
+  else if (i.type === 'mediawall') { if (hostState.media.videoId) startTVPlayback(true); else addChat('System', '*TV is idle*', '#e8b96a'); }
   else if (i.type === 'hostconsole') {
     if (isHostUser()) {
       const p = document.getElementById('host-panel');
@@ -2173,9 +2436,7 @@ function updateRoomFx(t, dt) {
     }
   }
 
-  if (fifaScreenMesh && fifaScreenMesh.material && fifaScreenMesh.material.emissive) {
-    fifaScreenMesh.material.emissive.set(0x000000);
-  }
+  placeTVOverlay();
 }
 
 // ==================== LOOP ====================
