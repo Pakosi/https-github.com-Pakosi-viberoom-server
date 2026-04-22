@@ -417,18 +417,6 @@ document.querySelectorAll('#host-panel [data-vibe]').forEach(btn => btn.addEvent
   broadcastHostEvent(evt);
   document.getElementById('host-info').textContent = 'Vibe set to ' + btn.dataset.vibe.toUpperCase();
 }));
-document.getElementById('host-money-rain').addEventListener('click', () => {
-  if (!isHostUser()) return;
-  const evt = { kind:'money' };
-  applyHostEvent(evt, true);
-  broadcastHostEvent(evt);
-});
-document.getElementById('host-pulse').addEventListener('click', () => {
-  if (!isHostUser()) return;
-  const evt = { kind:'pulse' };
-  applyHostEvent(evt, true);
-  broadcastHostEvent(evt);
-});
 document.getElementById('admin-prev').addEventListener('click', () => selectAdmin(-1));
 document.getElementById('admin-next').addEventListener('click', () => selectAdmin(1));
 document.getElementById('admin-left').addEventListener('click', () => nudgeAdmin(-0.4,0,0,0));
@@ -443,15 +431,27 @@ document.getElementById('admin-save').addEventListener('click', saveLayout);
 document.getElementById('admin-exit').addEventListener('click', () => setAdminMode(false));
 
 // ==================== PANELS ====================
-function anyPanelOpen() { return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block'); }
-function closeAllPanels() { document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); soccerGame.running = false; }
+function anyPanelOpen() {
+  return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block');
+}
+function closeAllPanels() {
+  document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+  document.getElementById('host-panel').style.display = 'none';
+  stopSoccerGame();
+}
 function openPanel(id) {
   closeAllPanels();
-  document.getElementById(id).style.display = 'block';
-  if (id === 'fifa-panel') soccerGame.running = true;
+  const panel = document.getElementById(id);
+  if (!panel) return;
+  panel.style.display = 'block';
+  if (id === 'fifa-panel') startSoccerGame();
   if (document.pointerLockElement) document.exitPointerLock();
 }
-document.querySelectorAll('.panel .close').forEach(b => b.onclick = closeAllPanels);
+document.querySelectorAll('.panel .close').forEach(b => {
+  b.onclick = () => {
+    closeAllPanels();
+  };
+});
 
 // ==================== INTERACTIONS ====================
 function nearest() {
@@ -715,207 +715,557 @@ const soccerGame = {
   matchSeconds: 90,
   timeLeft: 90,
   state: 'idle',
-
   shootHeld: false,
   shootCharge: 0,
-
   player: null,
   cpu: null,
   ball: null,
-
   fever: 0,
   feverReady: false,
-
+  kickoffTimer: 0,
+  commentary: 'Kickoff at the luxury nonsense dome.',
   score: { home: 0, away: 0 },
-
+  particles: [],
   touch: {
-    moveActive: false,
-    aimActive: false,
-
+    pointers: new Map(),
+    moveId: null,
+    aimId: null,
     moveStartX: 0,
     moveStartY: 0,
     moveX: 0,
     moveY: 0,
-
+    moveActive: false,
     aimX: 0,
     aimY: 0,
-
-    sprint: false,
-    shotTargetX: 0,
-    shotTargetY: 0
+    aimActive: false,
+    shotTargetX: 720,
+    shotTargetY: 200,
+    sprint: false
   }
 };
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
 function normalize(dx, dy) {
   const m = Math.hypot(dx, dy) || 1;
   return { x: dx / m, y: dy / m, m };
 }
-function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
-
-function isMobileLandscape() {
-  return window.matchMedia('(orientation: landscape)').matches && window.innerWidth < 1100;
+function isMobileLandscapeFifa() {
+  return window.matchMedia('(orientation: landscape)').matches && window.innerWidth <= 1100;
 }
-
-// ==================== INIT ====================
+function updateFifaHud() {
+  fifaScoreEl.textContent = `PAX FC ${soccerGame.score.home} - ${soccerGame.score.away} CPU UNITED`;
+  const secs = Math.max(0, soccerGame.timeLeft);
+  const whole = Math.floor(secs);
+  const m = String(Math.floor(whole / 60)).padStart(2, '0');
+  const s = String(whole % 60).padStart(2, '0');
+  fifaClockEl.textContent = `${m}:${s}`;
+  fifaFeverEl.textContent = soccerGame.feverReady ? 'FEVER READY: YES' : `FEVER: ${Math.floor(soccerGame.fever)}%`;
+  fifaCommentaryEl.textContent = soccerGame.commentary;
+}
+function updateFifaResponsiveUi() {
+  fifaSubEl.textContent = isMobileLandscapeFifa()
+    ? 'LEFT THUMB move · RIGHT THUMB aim, hold, release to shoot · push far to sprint'
+    : 'WASD / arrows move · hold SPACE to charge shot · SHIFT sprint · click SUPER SHOT when close';
+}
+function resetBall(direction = 1) {
+  soccerGame.player.x = 160; soccerGame.player.y = 200; soccerGame.player.vx = 0; soccerGame.player.vy = 0;
+  soccerGame.cpu.x = 560; soccerGame.cpu.y = 200; soccerGame.cpu.vx = 0; soccerGame.cpu.vy = 0;
+  soccerGame.ball.x = 360; soccerGame.ball.y = 200;
+  soccerGame.ball.vx = 4 * direction; soccerGame.ball.vy = (Math.random() - 0.5) * 2;
+  soccerGame.ball.owner = null;
+  soccerGame.kickoffTimer = 1.2;
+}
+function resetSoccerTouchState() {
+  soccerGame.touch.pointers.clear();
+  soccerGame.touch.moveId = null;
+  soccerGame.touch.aimId = null;
+  soccerGame.touch.moveActive = false;
+  soccerGame.touch.aimActive = false;
+  soccerGame.touch.moveX = 0;
+  soccerGame.touch.moveY = 0;
+  soccerGame.touch.sprint = false;
+  soccerGame.shootHeld = false;
+}
 function resetSoccerMatch() {
-  soccerGame.player = { x: 160, y: 200, r: 18, speed: 170 };
-  soccerGame.cpu = { x: 560, y: 200, r: 18, speed: 150 };
-  soccerGame.ball = { x: 360, y: 200, vx: 0, vy: 0, r: 10 };
-
-  soccerGame.score.home = 0;
-  soccerGame.score.away = 0;
-
+  soccerGame.timeLeft = soccerGame.matchSeconds;
+  soccerGame.state = 'playing';
   soccerGame.fever = 0;
   soccerGame.feverReady = false;
-
-  soccerGame.timeLeft = 90;
-  soccerGame.state = 'playing';
-
-  updateUI();
+  soccerGame.shootCharge = 0;
+  soccerGame.score.home = 0;
+  soccerGame.score.away = 0;
+  soccerGame.commentary = 'Kickoff at the luxury nonsense dome.';
+  soccerGame.player = { x: 160, y: 200, vx: 0, vy: 0, r: 18, speed: 170, color: '#57a8ff', aura: '#9fd4ff', name: 'Pax FC' };
+  soccerGame.cpu = { x: 560, y: 200, vx: 0, vy: 0, r: 18, speed: 158, color: '#ff6b5f', aura: '#ffc2b8', name: 'CPU United', mood: 0 };
+  soccerGame.ball = { x: 360, y: 200, vx: 0, vy: 0, r: 10, color: '#f6f1d6', trail: [] };
+  soccerGame.particles = [];
+  resetSoccerTouchState();
+  resetBall(Math.random() < 0.5 ? -1 : 1);
+  updateFifaHud();
+  updateFifaResponsiveUi();
+  renderSoccer();
 }
+function startSoccerGame() {
+  if (!soccerGame.player) resetSoccerMatch();
+  soccerGame.running = true;
+  soccerGame.lastTs = 0;
+  updateFifaResponsiveUi();
+  if (!soccerGame.raf) soccerGame.raf = requestAnimationFrame(soccerLoop);
+}
+function stopSoccerGame() {
+  soccerGame.running = false;
+  resetSoccerTouchState();
+  if (soccerGame.raf) cancelAnimationFrame(soccerGame.raf);
+  soccerGame.raf = 0;
+}
+function addSoccerParticles(x, y, color, power = 1) {
+  for (let i = 0; i < 8 + power * 4; i++) {
+    soccerGame.particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * (50 + power * 40),
+      vy: (Math.random() - 0.5) * (50 + power * 40),
+      life: 0.3 + Math.random() * 0.35,
+      color
+    });
+  }
+}
+function kickBall(kicker, targetX, targetY, boost = 1) {
+  const dx = targetX - soccerGame.ball.x;
+  const dy = targetY - soccerGame.ball.y;
+  const n = normalize(dx, dy);
+  const power = 290 + soccerGame.shootCharge * 260 + boost * 80 + (soccerGame.feverReady ? 180 : 0);
+  soccerGame.ball.vx = n.x * power;
+  soccerGame.ball.vy = n.y * power;
+  soccerGame.ball.x += n.x * 12;
+  soccerGame.ball.y += n.y * 12;
+  soccerGame.ball.owner = null;
+  soccerGame.commentary = soccerGame.feverReady ? 'ABSURD ROCKET SHOT. Somebody call insurance.' : `${kicker.name} unleashes a hit.`;
+  addSoccerParticles(soccerGame.ball.x, soccerGame.ball.y, soccerGame.feverReady ? '#ffd35a' : '#ffffff', soccerGame.feverReady ? 3 : 1);
+  soccerGame.fever = soccerGame.feverReady ? 0 : clamp(soccerGame.fever + 14, 0, 100);
+  soccerGame.feverReady = false;
+  soccerGame.shootCharge = 0;
+  updateFifaHud();
+}
+function getPlayerShotTarget() {
+  if (soccerGame.touch.aimActive) {
+    return {
+      x: clamp(soccerGame.touch.shotTargetX, 520, 720),
+      y: clamp(soccerGame.touch.shotTargetY, 40, 360)
+    };
+  }
+  return {
+    x: 720,
+    y: 200 + (keys['arrowup'] || keys['w'] ? -40 : 0) + (keys['arrowdown'] || keys['s'] ? 40 : 0)
+  };
+}
+function maybePlayerKick(forceSuper = false) {
+  const d = dist(soccerGame.player.x, soccerGame.player.y, soccerGame.ball.x, soccerGame.ball.y);
+  if (d > soccerGame.player.r + soccerGame.ball.r + 8) return;
+  const target = getPlayerShotTarget();
+  kickBall(soccerGame.player, target.x, target.y, forceSuper ? 2.2 : 1);
+}
+function cpuKick() {
+  const targetY = 200 + (Math.random() - 0.5) * 120;
+  kickBall(soccerGame.cpu, 0, targetY, 0.85 + Math.random() * 0.5);
+}
+function updateSoccerInput(dt) {
+  if (document.getElementById('fifa-panel').style.display !== 'block') return;
 
-// ==================== INPUT ====================
-function updateInput(dt) {
   let mx = 0, my = 0;
+  if (keys['a'] || keys['arrowleft']) mx -= 1;
+  if (keys['d'] || keys['arrowright']) mx += 1;
+  if (keys['w'] || keys['arrowup']) my -= 1;
+  if (keys['s'] || keys['arrowdown']) my += 1;
 
   if (soccerGame.touch.moveActive) {
-    mx = soccerGame.touch.moveX;
-    my = soccerGame.touch.moveY;
+    mx += soccerGame.touch.moveX;
+    my += soccerGame.touch.moveY;
   }
 
   const n = normalize(mx, my);
-  const sprint = soccerGame.touch.sprint;
+  const sprint = !!keys['shift'] || !!soccerGame.touch.sprint;
 
-  soccerGame.player.x += n.x * soccerGame.player.speed * (sprint ? 1.5 : 1) * dt;
-  soccerGame.player.y += n.y * soccerGame.player.speed * (sprint ? 1.5 : 1) * dt;
+  soccerGame.player.vx = n.x * soccerGame.player.speed * (sprint ? 1.5 : 1);
+  soccerGame.player.vy = n.y * soccerGame.player.speed * (sprint ? 1.5 : 1);
+  soccerGame.player.x = clamp(soccerGame.player.x + soccerGame.player.vx * dt, 24, 696);
+  soccerGame.player.y = clamp(soccerGame.player.y + soccerGame.player.vy * dt, 24, 376);
 
-  soccerGame.player.x = clamp(soccerGame.player.x, 20, 700);
-  soccerGame.player.y = clamp(soccerGame.player.y, 20, 380);
-
-  if (soccerGame.shootHeld) {
-    soccerGame.shootCharge = clamp(soccerGame.shootCharge + dt, 0, 1);
+  const chargeHeld = !!(keys[' '] || soccerGame.shootHeld);
+  if (chargeHeld) soccerGame.shootCharge = clamp(soccerGame.shootCharge + dt * 1.15, 0, 1);
+  if (!chargeHeld && soccerGame.shootCharge > 0.04) maybePlayerKick(false);
+}
+function updateCpu(dt) {
+  const cpu = soccerGame.cpu;
+  const ball = soccerGame.ball;
+  const defendBias = soccerGame.score.away > soccerGame.score.home ? 0.78 : 1;
+  const targetX = ball.x > 390 ? ball.x : 455;
+  const targetY = clamp(ball.y + Math.sin(performance.now() * 0.002 + cpu.mood) * 18, 40, 360);
+  const n = normalize(targetX - cpu.x, targetY - cpu.y);
+  cpu.x = clamp(cpu.x + n.x * cpu.speed * defendBias * dt, 24, 696);
+  cpu.y = clamp(cpu.y + n.y * cpu.speed * defendBias * dt, 24, 376);
+  if (dist(cpu.x, cpu.y, ball.x, ball.y) < cpu.r + ball.r + 7) {
+    cpuKick();
+    cpu.mood += 0.65;
   }
 }
+function updateBall(dt) {
+  const b = soccerGame.ball;
+  if (soccerGame.kickoffTimer > 0) soccerGame.kickoffTimer -= dt;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  b.vx *= Math.pow(0.992, dt * 60);
+  b.vy *= Math.pow(0.992, dt * 60);
 
-// ==================== SHOOT ====================
-function shootBall() {
-  const dx = soccerGame.touch.shotTargetX - soccerGame.ball.x;
-  const dy = soccerGame.touch.shotTargetY - soccerGame.ball.y;
-  const n = normalize(dx, dy);
+  const goalTop = 140, goalBot = 260;
+  if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy) * 0.92; }
+  if (b.y > 400 - b.r) { b.y = 400 - b.r; b.vy = -Math.abs(b.vy) * 0.92; }
+  const inGoalLane = b.y > goalTop && b.y < goalBot;
+  if (!inGoalLane) {
+    if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * 0.92; }
+    if (b.x > 720 - b.r) { b.x = 720 - b.r; b.vx = -Math.abs(b.vx) * 0.92; }
+  }
 
-  const power = 300 + soccerGame.shootCharge * 300;
+  if (b.x < -20 && inGoalLane) {
+    soccerGame.score.away++;
+    soccerGame.commentary = 'CPU United scores. Disgraceful scenes.';
+    soccerGame.fever = clamp(soccerGame.fever + 25, 0, 100);
+    soccerGame.feverReady = soccerGame.fever >= 100;
+    resetBall(1);
+    updateFifaHud();
+  }
+  if (b.x > 740 && inGoalLane) {
+    soccerGame.score.home++;
+    soccerGame.commentary = 'PAX FC SCORES. The room loses its mind.';
+    soccerGame.fever = clamp(soccerGame.fever + 34, 0, 100);
+    soccerGame.feverReady = soccerGame.fever >= 100;
+    resetBall(-1);
+    updateFifaHud();
+  }
 
-  soccerGame.ball.vx = n.x * power;
-  soccerGame.ball.vy = n.y * power;
+  const collide = (p, isPlayer) => {
+    const d = dist(p.x, p.y, b.x, b.y);
+    const minD = p.r + b.r;
+    if (d < minD) {
+      const n = normalize(b.x - p.x, b.y - p.y);
+      const overlap = minD - d;
+      b.x += n.x * overlap;
+      b.y += n.y * overlap;
+      const touchBoost = isPlayer ? 36 : 28;
+      b.vx += n.x * touchBoost + p.vx * 0.22;
+      b.vy += n.y * touchBoost + p.vy * 0.22;
+      if (isPlayer) {
+        soccerGame.fever = clamp(soccerGame.fever + dt * 30 + 0.2, 0, 100);
+        soccerGame.feverReady = soccerGame.fever >= 100;
+      }
+    }
+  };
+  collide(soccerGame.player, true);
+  collide(soccerGame.cpu, false);
 
-  soccerGame.shootCharge = 0;
+  if (Math.abs(b.vx) + Math.abs(b.vy) < 16 && soccerGame.kickoffTimer <= 0) {
+    const n = normalize((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 70);
+    b.vx += n.x * 24;
+    b.vy += n.y * 24;
+  }
+}
+function updateParticles(dt) {
+  for (let i = soccerGame.particles.length - 1; i >= 0; i--) {
+    const p = soccerGame.particles[i];
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.98;
+    p.vy *= 0.98;
+    if (p.life <= 0) soccerGame.particles.splice(i, 1);
+  }
+}
+function drawSoccerTouchHud(ctx) {
+  if (!isMobileLandscapeFifa()) return;
+  const t = soccerGame.touch;
+
+  if (t.moveActive) {
+    const baseR = 34;
+    const knobR = 16;
+    ctx.save();
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(t.moveStartX, t.moveStartY, baseR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = '#e8b96a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(t.moveStartX, t.moveStartY, baseR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#e8b96a';
+    ctx.beginPath();
+    ctx.arc(t.moveStartX + t.moveX * 24, t.moveStartY + t.moveY * 24, knobR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  if (t.aimActive) {
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    ctx.strokeStyle = soccerGame.feverReady ? '#ffd35a' : '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 6]);
+    ctx.beginPath();
+    ctx.moveTo(soccerGame.ball.x, soccerGame.ball.y);
+    ctx.lineTo(t.shotTargetX, t.shotTargetY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(t.shotTargetX, t.shotTargetY, 18, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = '#f5e7c6';
+  ctx.font = 'bold 12px Courier New';
+  ctx.fillText('MOVE', 24, 392);
+  ctx.fillText('AIM / SHOOT', 600, 392);
+  ctx.restore();
+}
+function renderSoccer() {
+  const ctx = fifaCtx;
+  const { player, cpu, ball } = soccerGame;
+  ctx.clearRect(0, 0, 720, 400);
+
+  const g = ctx.createLinearGradient(0, 0, 0, 400);
+  g.addColorStop(0, '#1a7a35');
+  g.addColorStop(1, '#0d4a20');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 720, 400);
+
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)';
+    ctx.fillRect(i * 72, 0, 72, 400);
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(18, 18, 684, 364);
+  ctx.beginPath(); ctx.moveTo(360, 18); ctx.lineTo(360, 382); ctx.stroke();
+  ctx.beginPath(); ctx.arc(360, 200, 55, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeRect(18, 120, 80, 160);
+  ctx.strokeRect(622, 120, 80, 160);
+  ctx.strokeRect(0, 145, 18, 110);
+  ctx.strokeRect(702, 145, 18, 110);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(0, 145, 18, 110);
+  ctx.fillRect(702, 145, 18, 110);
+
+  const drawPlayer = (p, boost) => {
+    ctx.beginPath();
+    ctx.fillStyle = boost ? p.aura : p.color;
+    ctx.arc(p.x, p.y, p.r + (boost ? 4 : 0), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = p.color;
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  };
+  drawPlayer(player, soccerGame.feverReady);
+  drawPlayer(cpu, false);
+
+  ctx.save();
+  ctx.translate(ball.x, ball.y);
+  ctx.rotate(performance.now() * 0.006 + ball.x * 0.01);
+  ctx.fillStyle = ball.color;
+  ctx.beginPath(); ctx.arc(0, 0, ball.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.moveTo(0, -6); ctx.lineTo(0, 6); ctx.stroke();
+  ctx.restore();
+
+  for (const p of soccerGame.particles) {
+    ctx.globalAlpha = Math.max(0, p.life / 0.65);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  const meterW = 180;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(16, 12, meterW, 14);
+  ctx.fillStyle = soccerGame.feverReady ? '#ffd35a' : '#7adf9a';
+  ctx.fillRect(16, 12, meterW * (soccerGame.feverReady ? 1 : soccerGame.fever / 100), 14);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.strokeRect(16, 12, meterW, 14);
+
+  ctx.fillStyle = '#f5e7c6';
+  ctx.font = 'bold 13px Courier New';
+  ctx.fillText(`SHOT ${Math.round(soccerGame.shootCharge * 100)}%`, 16, 44);
+
+  drawSoccerTouchHud(ctx);
+
+  if (soccerGame.state !== 'playing') {
+    ctx.fillStyle = 'rgba(0,0,0,0.48)';
+    ctx.fillRect(120, 120, 480, 140);
+    ctx.strokeStyle = '#e8b96a';
+    ctx.strokeRect(120, 120, 480, 140);
+    ctx.fillStyle = '#f8e8b0';
+    ctx.font = 'bold 34px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(soccerGame.state === 'sudden' ? 'SUDDEN DEATH' : 'MATCH OVER', 360, 175);
+    ctx.font = '18px Courier New';
+    ctx.fillText(soccerGame.commentary, 360, 210);
+    ctx.fillText('Press NEW MATCH and do something ridiculous again.', 360, 238);
+    ctx.textAlign = 'left';
+  }
+}
+function soccerLoop(ts) {
+  if (!soccerGame.running) { soccerGame.raf = 0; return; }
+  const dt = Math.min(0.033, soccerGame.lastTs ? (ts - soccerGame.lastTs) / 1000 : 0.016);
+  soccerGame.lastTs = ts;
+
+  if (document.getElementById('fifa-panel').style.display === 'block') {
+    if (soccerGame.state === 'playing' || soccerGame.state === 'sudden') {
+      soccerGame.timeLeft -= soccerGame.state === 'playing' ? dt : 0;
+      if (soccerGame.timeLeft <= 0 && soccerGame.state === 'playing') {
+        if (soccerGame.score.home === soccerGame.score.away) {
+          soccerGame.state = 'sudden';
+          soccerGame.timeLeft = 0;
+          soccerGame.commentary = 'Tied after 90. Next goal wins. This got stupid in the best way.';
+        } else {
+          soccerGame.state = 'ended';
+          soccerGame.commentary = soccerGame.score.home > soccerGame.score.away ? 'PAX FC wins. Cinema.' : 'CPU United steals it. Appalling.';
+        }
+        updateFifaHud();
+      }
+
+      updateSoccerInput(dt);
+      updateCpu(dt);
+      updateBall(dt);
+      updateParticles(dt);
+
+      if (soccerGame.state === 'sudden' && soccerGame.score.home !== soccerGame.score.away) {
+        soccerGame.state = 'ended';
+        soccerGame.commentary = soccerGame.score.home > soccerGame.score.away ? 'GOLDEN GOAL. Room erupts.' : 'Golden goal conceded. Grim.';
+        updateFifaHud();
+      }
+
+      updateFifaHud();
+    }
+    renderSoccer();
+  }
+
+  soccerGame.raf = requestAnimationFrame(soccerLoop);
 }
 
-// ==================== TOUCH ====================
-fifaCanvas.addEventListener('pointerdown', (e) => {
-  const rect = fifaCanvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (720 / rect.width);
-  const y = (e.clientY - rect.top) * (400 / rect.height);
+document.getElementById('fifa-shoot').onclick = () => {
+  soccerGame.shootCharge = Math.max(soccerGame.shootCharge, 0.85);
+  maybePlayerKick(true);
+};
+document.getElementById('fifa-reset').onclick = () => {
+  resetSoccerMatch();
+  startSoccerGame();
+};
 
-  if (x < 300) {
-    soccerGame.touch.moveActive = true;
-    soccerGame.touch.moveStartX = x;
-    soccerGame.touch.moveStartY = y;
+function getFifaCanvasPoint(e) {
+  const r = fifaCanvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (fifaCanvas.width / r.width),
+    y: (e.clientY - r.top) * (fifaCanvas.height / r.height)
+  };
+}
+function releaseMovePointer(pointerId) {
+  if (soccerGame.touch.moveId !== pointerId) return;
+  soccerGame.touch.moveId = null;
+  soccerGame.touch.moveActive = false;
+  soccerGame.touch.moveX = 0;
+  soccerGame.touch.moveY = 0;
+  soccerGame.touch.sprint = false;
+}
+function releaseAimPointer(pointerId) {
+  if (soccerGame.touch.aimId !== pointerId) return;
+  soccerGame.touch.aimId = null;
+  soccerGame.touch.aimActive = false;
+  if (soccerGame.shootHeld && soccerGame.shootCharge > 0.04) {
+    soccerGame.shootHeld = false;
+    maybePlayerKick(false);
   } else {
+    soccerGame.shootHeld = false;
+    soccerGame.shootCharge = 0;
+  }
+}
+function updateMoveFromPointer(pt) {
+  const dx = pt.x - soccerGame.touch.moveStartX;
+  const dy = pt.y - soccerGame.touch.moveStartY;
+  const maxR = 46;
+  const n = normalize(dx, dy);
+  const mag = Math.min(1, Math.hypot(dx, dy) / maxR);
+  soccerGame.touch.moveX = n.x * mag;
+  soccerGame.touch.moveY = n.y * mag;
+  soccerGame.touch.sprint = mag > 0.72;
+}
+function updateAimFromPointer(pt) {
+  soccerGame.touch.aimX = pt.x;
+  soccerGame.touch.aimY = pt.y;
+  soccerGame.touch.shotTargetX = pt.x;
+  soccerGame.touch.shotTargetY = pt.y;
+}
+
+fifaCanvas.addEventListener('pointerdown', (e) => {
+  const pt = getFifaCanvasPoint(e);
+  soccerGame.touch.pointers.set(e.pointerId, pt);
+
+  const leftSide = pt.x < fifaCanvas.width * 0.45;
+  if (leftSide && soccerGame.touch.moveId == null) {
+    soccerGame.touch.moveId = e.pointerId;
+    soccerGame.touch.moveActive = true;
+    soccerGame.touch.moveStartX = pt.x;
+    soccerGame.touch.moveStartY = pt.y;
+    soccerGame.touch.moveX = 0;
+    soccerGame.touch.moveY = 0;
+  } else if (soccerGame.touch.aimId == null) {
+    soccerGame.touch.aimId = e.pointerId;
     soccerGame.touch.aimActive = true;
     soccerGame.shootHeld = true;
-    soccerGame.touch.shotTargetX = x;
-    soccerGame.touch.shotTargetY = y;
+    soccerGame.touch.shotTargetX = pt.x;
+    soccerGame.touch.shotTargetY = pt.y;
+    updateAimFromPointer(pt);
   }
-});
+
+  if (fifaCanvas.setPointerCapture) fifaCanvas.setPointerCapture(e.pointerId);
+  e.preventDefault();
+}, { passive: false });
 
 fifaCanvas.addEventListener('pointermove', (e) => {
-  const rect = fifaCanvas.getBoundingClientRect();
-  const x = (e.clientX - rect.left) * (720 / rect.width);
-  const y = (e.clientY - rect.top) * (400 / rect.height);
+  if (!soccerGame.touch.pointers.has(e.pointerId)) return;
+  const pt = getFifaCanvasPoint(e);
+  soccerGame.touch.pointers.set(e.pointerId, pt);
 
-  if (soccerGame.touch.moveActive) {
-    const dx = x - soccerGame.touch.moveStartX;
-    const dy = y - soccerGame.touch.moveStartY;
+  if (soccerGame.touch.moveId === e.pointerId) updateMoveFromPointer(pt);
+  if (soccerGame.touch.aimId === e.pointerId) updateAimFromPointer(pt);
 
-    const n = normalize(dx, dy);
-    const mag = Math.min(1, Math.hypot(dx, dy) / 50);
+  e.preventDefault();
+}, { passive: false });
 
-    soccerGame.touch.moveX = n.x * mag;
-    soccerGame.touch.moveY = n.y * mag;
-    soccerGame.touch.sprint = mag > 0.7;
-  }
-
-  if (soccerGame.touch.aimActive) {
-    soccerGame.touch.shotTargetX = x;
-    soccerGame.touch.shotTargetY = y;
-  }
-});
-
-fifaCanvas.addEventListener('pointerup', () => {
-  if (soccerGame.shootHeld) shootBall();
-
-  soccerGame.touch.moveActive = false;
-  soccerGame.touch.aimActive = false;
-  soccerGame.shootHeld = false;
-});
-
-// ==================== UPDATE ====================
-function update(dt) {
-  updateInput(dt);
-
-  soccerGame.ball.x += soccerGame.ball.vx * dt;
-  soccerGame.ball.y += soccerGame.ball.vy * dt;
-
-  soccerGame.ball.vx *= 0.98;
-  soccerGame.ball.vy *= 0.98;
+function handleFifaPointerEnd(e) {
+  releaseMovePointer(e.pointerId);
+  releaseAimPointer(e.pointerId);
+  soccerGame.touch.pointers.delete(e.pointerId);
 }
+fifaCanvas.addEventListener('pointerup', handleFifaPointerEnd);
+fifaCanvas.addEventListener('pointercancel', handleFifaPointerEnd);
+window.addEventListener('resize', updateFifaResponsiveUi);
 
-// ==================== RENDER ====================
-function render() {
-  fifaCtx.clearRect(0, 0, 720, 400);
-
-  fifaCtx.fillStyle = "#0b3d1f";
-  fifaCtx.fillRect(0, 0, 720, 400);
-
-  // player
-  fifaCtx.beginPath();
-  fifaCtx.arc(soccerGame.player.x, soccerGame.player.y, 18, 0, Math.PI * 2);
-  fifaCtx.fillStyle = "#4da6ff";
-  fifaCtx.fill();
-
-  // cpu
-  fifaCtx.beginPath();
-  fifaCtx.arc(soccerGame.cpu.x, soccerGame.cpu.y, 18, 0, Math.PI * 2);
-  fifaCtx.fillStyle = "#ff5c5c";
-  fifaCtx.fill();
-
-  // ball
-  fifaCtx.beginPath();
-  fifaCtx.arc(soccerGame.ball.x, soccerGame.ball.y, 10, 0, Math.PI * 2);
-  fifaCtx.fillStyle = "#fff";
-  fifaCtx.fill();
-}
-
-// ==================== LOOP ====================
-function loop(ts) {
-  const dt = 0.016;
-  update(dt);
-  render();
-  requestAnimationFrame(loop);
-}
-
-// ==================== UI ====================
-function updateUI() {
-  fifaSubEl.textContent = isMobileLandscape()
-    ? "LEFT = MOVE · RIGHT = AIM + HOLD → RELEASE SHOOT"
-    : "WASD + SPACE";
-}
-
-// ==================== START ====================
 resetSoccerMatch();
-loop();
+
 // ==================== BASKETBALL PANEL ====================
 let ballMade = 0, ballTaken = 0;
 function updateBallScore() {
