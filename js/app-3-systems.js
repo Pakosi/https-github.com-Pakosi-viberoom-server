@@ -444,10 +444,11 @@ document.getElementById('admin-exit').addEventListener('click', () => setAdminMo
 
 // ==================== PANELS ====================
 function anyPanelOpen() { return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block'); }
-function closeAllPanels() { document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); }
+function closeAllPanels() { document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); soccerGame.running = false; }
 function openPanel(id) {
   closeAllPanels();
   document.getElementById(id).style.display = 'block';
+  if (id === 'fifa-panel') soccerGame.running = true;
   if (document.pointerLockElement) document.exitPointerLock();
 }
 document.querySelectorAll('.panel .close').forEach(b => b.onclick = closeAllPanels);
@@ -473,7 +474,7 @@ function tryInteract() {
   else if (i.type === 'lounge') addChat('System', '*' + player.name + ' sinks into the couch 🛋️*', '#8ac8e8');
   else if (i.type === 'table') { document.getElementById('war-count').textContent = String(remotes.size + 1); openPanel('war-panel'); }
   else if (i.type === 'basketball') openPanel('basketball-panel');
-  else if (i.type === 'fifa') openPanel('fifa-panel');
+  else if (i.type === 'fifa') { openPanel('fifa-panel'); startSoccerGame(); }
   else if (i.type === 'money') addChat('System', '*' + player.name + ' admires the cash pile like a true menace 💰*', '#7adf9a');
   else if (i.type === 'mediawall') { if (hostState.media.videoId) startTVPlayback(true); else addChat('System', '*TV is idle*', '#e8b96a'); }
   else if (i.type === 'hostconsole') {
@@ -697,18 +698,383 @@ function checkTTT(p){const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0
 document.getElementById('ttt-reset').onclick=resetTTT;
 
 // ==================== FIFA PANEL ====================
-let fifaHome = 0, fifaAway = 0;
-function updateFifaScore() {
-  document.getElementById('fifa-score').textContent = `HOME ${fifaHome} - ${fifaAway} AWAY`;
-  if (fifaScreenTex && fifaScreenTex.dispose) fifaScreenTex.dispose();
+const fifaCanvas = document.getElementById('fifa-canvas');
+const fifaCtx = fifaCanvas.getContext('2d');
+const fifaScoreEl = document.getElementById('fifa-score');
+const fifaClockEl = document.getElementById('fifa-clock');
+const fifaFeverEl = document.getElementById('fifa-fever');
+const fifaCommentaryEl = document.getElementById('fifa-commentary');
+const fifaSubEl = document.getElementById('fifa-sub');
+
+const soccerGame = {
+  running: false,
+  raf: 0,
+  lastTs: 0,
+  matchSeconds: 90,
+  timeLeft: 90,
+  state: 'idle',
+  shootHeld: false,
+  shootCharge: 0,
+  player: null,
+  cpu: null,
+  ball: null,
+  fever: 0,
+  feverReady: false,
+  kickoffTimer: 0,
+  touch: { active:false, x:0, y:0 },
+  commentary: 'Kickoff at the luxury nonsense dome.',
+  score: { home:0, away:0 },
+  particles: []
+};
+
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function dist(ax, ay, bx, by) { return Math.hypot(ax-bx, ay-by); }
+function normalize(dx, dy) {
+  const m = Math.hypot(dx, dy) || 1;
+  return { x: dx / m, y: dy / m, m };
 }
+function updateFifaHud() {
+  fifaScoreEl.textContent = `PAX FC ${soccerGame.score.home} - ${soccerGame.score.away} CPU UNITED`;
+  const secs = Math.max(0, soccerGame.timeLeft);
+  const whole = Math.floor(secs);
+  const m = String(Math.floor(whole / 60)).padStart(2, '0');
+  const s = String(whole % 60).padStart(2, '0');
+  fifaClockEl.textContent = `${m}:${s}`;
+  fifaFeverEl.textContent = soccerGame.feverReady ? 'FEVER READY: YES' : `FEVER: ${Math.floor(soccerGame.fever)}%`;
+  fifaCommentaryEl.textContent = soccerGame.commentary;
+}
+function resetBall(direction = 1) {
+  soccerGame.player.x = 160; soccerGame.player.y = 200; soccerGame.player.vx = 0; soccerGame.player.vy = 0;
+  soccerGame.cpu.x = 560; soccerGame.cpu.y = 200; soccerGame.cpu.vx = 0; soccerGame.cpu.vy = 0;
+  soccerGame.ball.x = 360; soccerGame.ball.y = 200;
+  soccerGame.ball.vx = 4 * direction; soccerGame.ball.vy = (Math.random() - 0.5) * 2;
+  soccerGame.ball.owner = null;
+  soccerGame.kickoffTimer = 1.2;
+}
+function resetSoccerMatch() {
+  soccerGame.timeLeft = soccerGame.matchSeconds;
+  soccerGame.state = 'playing';
+  soccerGame.fever = 0;
+  soccerGame.feverReady = false;
+  soccerGame.shootCharge = 0;
+  soccerGame.score.home = 0;
+  soccerGame.score.away = 0;
+  soccerGame.commentary = 'Kickoff at the luxury nonsense dome.';
+  soccerGame.player = { x:160, y:200, vx:0, vy:0, r:18, speed:170, color:'#57a8ff', aura:'#9fd4ff', name:'Pax FC' };
+  soccerGame.cpu = { x:560, y:200, vx:0, vy:0, r:18, speed:158, color:'#ff6b5f', aura:'#ffc2b8', name:'CPU United', mood:0 };
+  soccerGame.ball = { x:360, y:200, vx:0, vy:0, r:10, color:'#f6f1d6', trail:[] };
+  soccerGame.particles = [];
+  resetBall(Math.random() < 0.5 ? -1 : 1);
+  updateFifaHud();
+  renderSoccer();
+}
+function startSoccerGame() {
+  if (!soccerGame.player) resetSoccerMatch();
+  soccerGame.running = true;
+  soccerGame.lastTs = 0;
+  fifaSubEl.textContent = 'WASD / arrows move · hold SPACE to charge shot · SHIFT sprint · click SUPER SHOT when close';
+  if (!soccerGame.raf) soccerGame.raf = requestAnimationFrame(soccerLoop);
+}
+function stopSoccerGame() {
+  soccerGame.running = false;
+  if (soccerGame.raf) cancelAnimationFrame(soccerGame.raf);
+  soccerGame.raf = 0;
+}
+function addSoccerParticles(x, y, color, power=1) {
+  for (let i = 0; i < 8 + power * 4; i++) {
+    soccerGame.particles.push({
+      x, y,
+      vx: (Math.random()-0.5) * (50 + power * 40),
+      vy: (Math.random()-0.5) * (50 + power * 40),
+      life: 0.3 + Math.random() * 0.35,
+      color
+    });
+  }
+}
+function kickBall(kicker, targetX, targetY, boost = 1) {
+  const dx = targetX - soccerGame.ball.x;
+  const dy = targetY - soccerGame.ball.y;
+  const n = normalize(dx, dy);
+  const power = 290 + soccerGame.shootCharge * 260 + boost * 80 + (soccerGame.feverReady ? 180 : 0);
+  soccerGame.ball.vx = n.x * power;
+  soccerGame.ball.vy = n.y * power;
+  soccerGame.ball.x += n.x * 12;
+  soccerGame.ball.y += n.y * 12;
+  soccerGame.ball.owner = null;
+  soccerGame.commentary = soccerGame.feverReady ? 'ABSURD ROCKET SHOT. Somebody call insurance.' : `${kicker.name} unleashes a hit.`;
+  addSoccerParticles(soccerGame.ball.x, soccerGame.ball.y, soccerGame.feverReady ? '#ffd35a' : '#ffffff', soccerGame.feverReady ? 3 : 1);
+  soccerGame.fever = soccerGame.feverReady ? 0 : clamp(soccerGame.fever + 14, 0, 100);
+  soccerGame.feverReady = false;
+  soccerGame.shootCharge = 0;
+  updateFifaHud();
+}
+function maybePlayerKick(forceSuper = false) {
+  const d = dist(soccerGame.player.x, soccerGame.player.y, soccerGame.ball.x, soccerGame.ball.y);
+  if (d > soccerGame.player.r + soccerGame.ball.r + 8) return;
+  const tx = 720;
+  const ty = 200 + (keys['arrowup'] || keys['w'] ? -40 : 0) + (keys['arrowdown'] || keys['s'] ? 40 : 0);
+  kickBall(soccerGame.player, tx, ty, forceSuper ? 2.2 : 1);
+}
+function cpuKick() {
+  const targetY = 200 + (Math.random() - 0.5) * 120;
+  kickBall(soccerGame.cpu, 0, targetY, 0.85 + Math.random() * 0.5);
+}
+function updateSoccerInput(dt) {
+  if (document.getElementById('fifa-panel').style.display !== 'block') return;
+  let mx = 0, my = 0;
+  if (keys['a'] || keys['arrowleft']) mx -= 1;
+  if (keys['d'] || keys['arrowright']) mx += 1;
+  if (keys['w'] || keys['arrowup']) my -= 1;
+  if (keys['s'] || keys['arrowdown']) my += 1;
+  if (soccerGame.touch.active) {
+    const dx = soccerGame.touch.x - soccerGame.player.x;
+    const dy = soccerGame.touch.y - soccerGame.player.y;
+    const n = normalize(dx, dy);
+    if (Math.hypot(dx, dy) > 10) { mx += n.x; my += n.y; }
+  }
+  const n = normalize(mx, my);
+  const sprint = keys['shift'];
+  soccerGame.player.vx = n.x * soccerGame.player.speed * (sprint ? 1.5 : 1);
+  soccerGame.player.vy = n.y * soccerGame.player.speed * (sprint ? 1.5 : 1);
+  soccerGame.player.x = clamp(soccerGame.player.x + soccerGame.player.vx * dt, 24, 696);
+  soccerGame.player.y = clamp(soccerGame.player.y + soccerGame.player.vy * dt, 24, 376);
+
+  const chargeHeld = !!(keys[' '] || soccerGame.shootHeld);
+  if (chargeHeld) soccerGame.shootCharge = clamp(soccerGame.shootCharge + dt * 1.1, 0, 1);
+  if (!chargeHeld && soccerGame.shootCharge > 0.04) maybePlayerKick(false);
+}
+function updateCpu(dt) {
+  const cpu = soccerGame.cpu;
+  const ball = soccerGame.ball;
+  const defendBias = soccerGame.score.away > soccerGame.score.home ? 0.78 : 1;
+  const targetX = ball.x > 390 ? ball.x : 455;
+  const targetY = clamp(ball.y + Math.sin(performance.now() * 0.002 + cpu.mood) * 18, 40, 360);
+  const n = normalize(targetX - cpu.x, targetY - cpu.y);
+  cpu.x = clamp(cpu.x + n.x * cpu.speed * defendBias * dt, 24, 696);
+  cpu.y = clamp(cpu.y + n.y * cpu.speed * defendBias * dt, 24, 376);
+  if (dist(cpu.x, cpu.y, ball.x, ball.y) < cpu.r + ball.r + 7) {
+    cpuKick();
+    cpu.mood += 0.65;
+  }
+}
+function updateBall(dt) {
+  const b = soccerGame.ball;
+  if (soccerGame.kickoffTimer > 0) soccerGame.kickoffTimer -= dt;
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  b.vx *= Math.pow(0.992, dt * 60);
+  b.vy *= Math.pow(0.992, dt * 60);
+
+  const goalTop = 140, goalBot = 260;
+  if (b.y < b.r) { b.y = b.r; b.vy = Math.abs(b.vy) * 0.92; }
+  if (b.y > 400 - b.r) { b.y = 400 - b.r; b.vy = -Math.abs(b.vy) * 0.92; }
+  const inGoalLane = b.y > goalTop && b.y < goalBot;
+  if (!inGoalLane) {
+    if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * 0.92; }
+    if (b.x > 720 - b.r) { b.x = 720 - b.r; b.vx = -Math.abs(b.vx) * 0.92; }
+  }
+
+  if (b.x < -20 && inGoalLane) {
+    soccerGame.score.away++;
+    soccerGame.commentary = 'CPU United scores. Disgraceful scenes.';
+    soccerGame.fever = clamp(soccerGame.fever + 25, 0, 100);
+    soccerGame.feverReady = soccerGame.fever >= 100;
+    resetBall(1);
+    updateFifaHud();
+  }
+  if (b.x > 740 && inGoalLane) {
+    soccerGame.score.home++;
+    soccerGame.commentary = 'PAX FC SCORES. The room loses its mind.';
+    soccerGame.fever = clamp(soccerGame.fever + 34, 0, 100);
+    soccerGame.feverReady = soccerGame.fever >= 100;
+    resetBall(-1);
+    updateFifaHud();
+  }
+
+  const collide = (p, isPlayer) => {
+    const d = dist(p.x, p.y, b.x, b.y);
+    const minD = p.r + b.r;
+    if (d < minD) {
+      const n = normalize(b.x - p.x, b.y - p.y);
+      const overlap = minD - d;
+      b.x += n.x * overlap;
+      b.y += n.y * overlap;
+      const touchBoost = isPlayer ? 36 : 28;
+      b.vx += n.x * touchBoost + p.vx * 0.22;
+      b.vy += n.y * touchBoost + p.vy * 0.22;
+      if (isPlayer) {
+        soccerGame.fever = clamp(soccerGame.fever + dt * 30 + 0.2, 0, 100);
+        soccerGame.feverReady = soccerGame.fever >= 100;
+      }
+    }
+  };
+  collide(soccerGame.player, true);
+  collide(soccerGame.cpu, false);
+
+  if (Math.abs(b.vx) + Math.abs(b.vy) < 16 && soccerGame.kickoffTimer <= 0) {
+    const n = normalize((Math.random() - 0.5) * 100, (Math.random() - 0.5) * 70);
+    b.vx += n.x * 24;
+    b.vy += n.y * 24;
+  }
+}
+function updateParticles(dt) {
+  for (let i = soccerGame.particles.length - 1; i >= 0; i--) {
+    const p = soccerGame.particles[i];
+    p.life -= dt;
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.98;
+    p.vy *= 0.98;
+    if (p.life <= 0) soccerGame.particles.splice(i, 1);
+  }
+}
+function renderSoccer() {
+  const ctx = fifaCtx;
+  const { player, cpu, ball } = soccerGame;
+  ctx.clearRect(0, 0, 720, 400);
+
+  const g = ctx.createLinearGradient(0, 0, 0, 400);
+  g.addColorStop(0, '#1a7a35');
+  g.addColorStop(1, '#0d4a20');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 720, 400);
+
+  for (let i = 0; i < 10; i++) {
+    ctx.fillStyle = i % 2 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.05)';
+    ctx.fillRect(i * 72, 0, 72, 400);
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(18, 18, 684, 364);
+  ctx.beginPath(); ctx.moveTo(360, 18); ctx.lineTo(360, 382); ctx.stroke();
+  ctx.beginPath(); ctx.arc(360, 200, 55, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeRect(18, 120, 80, 160);
+  ctx.strokeRect(622, 120, 80, 160);
+  ctx.strokeRect(0, 145, 18, 110);
+  ctx.strokeRect(702, 145, 18, 110);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(0, 145, 18, 110);
+  ctx.fillRect(702, 145, 18, 110);
+
+  const drawPlayer = (p, boost) => {
+    ctx.beginPath();
+    ctx.fillStyle = boost ? p.aura : p.color;
+    ctx.arc(p.x, p.y, p.r + (boost ? 4 : 0), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = p.color;
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  };
+  drawPlayer(player, soccerGame.feverReady);
+  drawPlayer(cpu, false);
+
+  ctx.save();
+  ctx.translate(ball.x, ball.y);
+  ctx.rotate(performance.now() * 0.006 + ball.x * 0.01);
+  ctx.fillStyle = ball.color;
+  ctx.beginPath(); ctx.arc(0, 0, ball.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.moveTo(0, -6); ctx.lineTo(0, 6); ctx.stroke();
+  ctx.restore();
+
+  for (const p of soccerGame.particles) {
+    ctx.globalAlpha = Math.max(0, p.life / 0.65);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  const meterW = 180;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(16, 12, meterW, 14);
+  ctx.fillStyle = soccerGame.feverReady ? '#ffd35a' : '#7adf9a';
+  ctx.fillRect(16, 12, meterW * (soccerGame.feverReady ? 1 : soccerGame.fever / 100), 14);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.strokeRect(16, 12, meterW, 14);
+
+  ctx.fillStyle = '#f5e7c6';
+  ctx.font = 'bold 13px Courier New';
+  ctx.fillText(`SHOT ${Math.round(soccerGame.shootCharge * 100)}%`, 16, 44);
+
+  if (soccerGame.state !== 'playing') {
+    ctx.fillStyle = 'rgba(0,0,0,0.48)';
+    ctx.fillRect(120, 120, 480, 140);
+    ctx.strokeStyle = '#e8b96a';
+    ctx.strokeRect(120, 120, 480, 140);
+    ctx.fillStyle = '#f8e8b0';
+    ctx.font = 'bold 34px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(soccerGame.state === 'sudden' ? 'SUDDEN DEATH' : 'MATCH OVER', 360, 175);
+    ctx.font = '18px Courier New';
+    ctx.fillText(soccerGame.commentary, 360, 210);
+    ctx.fillText('Press NEW MATCH and do something ridiculous again.', 360, 238);
+    ctx.textAlign = 'left';
+  }
+}
+function soccerLoop(ts) {
+  if (!soccerGame.running) { soccerGame.raf = 0; return; }
+  const dt = Math.min(0.033, soccerGame.lastTs ? (ts - soccerGame.lastTs) / 1000 : 0.016);
+  soccerGame.lastTs = ts;
+  if (document.getElementById('fifa-panel').style.display === 'block') {
+    if (soccerGame.state === 'playing' || soccerGame.state === 'sudden') {
+      soccerGame.timeLeft -= soccerGame.state === 'playing' ? dt : 0;
+      if (soccerGame.timeLeft <= 0 && soccerGame.state === 'playing') {
+        if (soccerGame.score.home === soccerGame.score.away) {
+          soccerGame.state = 'sudden';
+          soccerGame.timeLeft = 0;
+          soccerGame.commentary = 'Tied after 90. Next goal wins. This got stupid in the best way.';
+        } else {
+          soccerGame.state = 'ended';
+          soccerGame.commentary = soccerGame.score.home > soccerGame.score.away ? 'PAX FC wins. Cinema.' : 'CPU United steals it. Appalling.';
+        }
+        updateFifaHud();
+      }
+      updateSoccerInput(dt);
+      updateCpu(dt);
+      updateBall(dt);
+      updateParticles(dt);
+      if (soccerGame.state === 'sudden' && soccerGame.score.home !== soccerGame.score.away) {
+        soccerGame.state = 'ended';
+        soccerGame.commentary = soccerGame.score.home > soccerGame.score.away ? 'GOLDEN GOAL. Room erupts.' : 'Golden goal conceded. Grim.';
+        updateFifaHud();
+      }
+      updateFifaHud();
+    }
+    renderSoccer();
+  }
+  soccerGame.raf = requestAnimationFrame(soccerLoop);
+}
+
 document.getElementById('fifa-shoot').onclick = () => {
-  if (Math.random() < 0.55) fifaHome++; else fifaAway++;
-  updateFifaScore();
+  soccerGame.shootCharge = Math.max(soccerGame.shootCharge, 0.85);
+  maybePlayerKick(true);
 };
 document.getElementById('fifa-reset').onclick = () => {
-  fifaHome = 0; fifaAway = 0; updateFifaScore();
+  resetSoccerMatch();
+  startSoccerGame();
 };
+fifaCanvas.addEventListener('pointerdown', (e) => {
+  const r = fifaCanvas.getBoundingClientRect();
+  soccerGame.touch.active = true;
+  soccerGame.touch.x = (e.clientX - r.left) * (fifaCanvas.width / r.width);
+  soccerGame.touch.y = (e.clientY - r.top) * (fifaCanvas.height / r.height);
+});
+fifaCanvas.addEventListener('pointermove', (e) => {
+  if (!soccerGame.touch.active) return;
+  const r = fifaCanvas.getBoundingClientRect();
+  soccerGame.touch.x = (e.clientX - r.left) * (fifaCanvas.width / r.width);
+  soccerGame.touch.y = (e.clientY - r.top) * (fifaCanvas.height / r.height);
+});
+window.addEventListener('pointerup', () => { soccerGame.touch.active = false; });
+resetSoccerMatch();
 
 // ==================== BASKETBALL PANEL ====================
 let ballMade = 0, ballTaken = 0;
