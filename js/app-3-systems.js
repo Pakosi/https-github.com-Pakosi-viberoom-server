@@ -6,7 +6,7 @@ const INTERACTS = [
   { type: 'whiteboard', x: 12.5,  z: -11.7, r: 4.4, label: 'PRESENTATION WALL ✏️' },
   { type: 'table',      x: 6.5,   z: 5.1,   r: 4.0, label: 'WAR TABLE 🧠', anchorId:'war_table' },
   { type: 'lounge',     x: -11.6, z: 8.2,   r: 4.0, label: 'LOUNGE 🛋️', anchorId:'lounge_zone', offsetX:0.2, offsetZ:2.4 },
-  { type: 'arcade',     x: 17.2,  z: 7.9,   r: 3.2, label: 'PLAY SNAKE 🎮', anchorId:'snake_zone', offsetX:0, offsetZ:0.2 },
+  { type: 'arcade',     x: 17.2,  z: 7.9,   r: 3.2, label: 'VIBE FIGHTER 🥊', anchorId:'snake_zone', offsetX:0, offsetZ:0.2 },
   { type: 'ttt',        x: 16.3,  z: 1.8,   r: 3.2, label: 'TIC TAC TOE ✖️' },
   { type: 'coffee',     x: -14.0, z: -7.1,  r: 4.2, label: 'BAR / COFFEE ☕', anchorId:'bar', offsetX:1.4, offsetZ:0.2 },
   { type: 'basketball', x: 16.0,  z: 10.6,  r: 3.8, label: 'BASKETBALL 🏀', anchorId:'basketball_zone', offsetX:-2.4, offsetZ:0 },
@@ -417,6 +417,18 @@ document.querySelectorAll('#host-panel [data-vibe]').forEach(btn => btn.addEvent
   broadcastHostEvent(evt);
   document.getElementById('host-info').textContent = 'Vibe set to ' + btn.dataset.vibe.toUpperCase();
 }));
+document.getElementById('host-money-rain').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'money' };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
+document.getElementById('host-pulse').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  const evt = { kind:'pulse' };
+  applyHostEvent(evt, true);
+  broadcastHostEvent(evt);
+});
 document.getElementById('admin-prev').addEventListener('click', () => selectAdmin(-1));
 document.getElementById('admin-next').addEventListener('click', () => selectAdmin(1));
 document.getElementById('admin-left').addEventListener('click', () => nudgeAdmin(-0.4,0,0,0));
@@ -431,27 +443,16 @@ document.getElementById('admin-save').addEventListener('click', saveLayout);
 document.getElementById('admin-exit').addEventListener('click', () => setAdminMode(false));
 
 // ==================== PANELS ====================
-function anyPanelOpen() {
-  return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block');
-}
-function closeAllPanels() {
-  document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
-  document.getElementById('host-panel').style.display = 'none';
-  stopSoccerGame();
-}
+function anyPanelOpen() { return [...document.querySelectorAll('.panel')].some(p => p.style.display === 'block'); }
+function closeAllPanels() { document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); soccerGame.running = false; if (typeof stopArcade === 'function') stopArcade(); }
 function openPanel(id) {
   closeAllPanels();
-  const panel = document.getElementById(id);
-  if (!panel) return;
-  panel.style.display = 'block';
-  if (id === 'fifa-panel') startSoccerGame();
+  document.getElementById(id).style.display = 'block';
+  if (id === 'fifa-panel') soccerGame.running = true;
+  if (id === 'arcade-panel' && typeof startArcade === 'function') startArcade();
   if (document.pointerLockElement) document.exitPointerLock();
 }
-document.querySelectorAll('.panel .close').forEach(b => {
-  b.onclick = () => {
-    closeAllPanels();
-  };
-});
+document.querySelectorAll('.panel .close').forEach(b => b.onclick = closeAllPanels);
 
 // ==================== INTERACTIONS ====================
 function nearest() {
@@ -468,7 +469,7 @@ function tryInteract() {
   const i = nearest();
   if (!i) return;
   if (i.type === 'whiteboard') openPanel('whiteboard');
-  else if (i.type === 'arcade') { openPanel('arcade-panel'); startArcade(); }
+  else if (i.type === 'arcade') { openPanel('arcade-panel'); }
   else if (i.type === 'ttt') { openPanel('ttt-panel'); resetTTT(); }
   else if (i.type === 'coffee') addChat('System', '*' + player.name + ' orders an overpriced coffee ☕*', '#e8b96a');
   else if (i.type === 'lounge') addChat('System', '*' + player.name + ' sinks into the couch 🛋️*', '#8ac8e8');
@@ -706,8 +707,6 @@ const fifaFeverEl = document.getElementById('fifa-fever');
 const fifaCommentaryEl = document.getElementById('fifa-commentary');
 const fifaSubEl = document.getElementById('fifa-sub');
 
-fifaCanvas.style.touchAction = 'none';
-
 const soccerGame = {
   running: false,
   raf: 0,
@@ -723,35 +722,17 @@ const soccerGame = {
   fever: 0,
   feverReady: false,
   kickoffTimer: 0,
+  touch: { active:false, x:0, y:0 },
   commentary: 'Kickoff at the luxury nonsense dome.',
-  score: { home: 0, away: 0 },
-  particles: [],
-  touch: {
-    pointers: new Map(),
-    moveId: null,
-    aimId: null,
-    moveStartX: 0,
-    moveStartY: 0,
-    moveX: 0,
-    moveY: 0,
-    moveActive: false,
-    aimX: 0,
-    aimY: 0,
-    aimActive: false,
-    shotTargetX: 720,
-    shotTargetY: 200,
-    sprint: false
-  }
+  score: { home:0, away:0 },
+  particles: []
 };
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
-function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+function dist(ax, ay, bx, by) { return Math.hypot(ax-bx, ay-by); }
 function normalize(dx, dy) {
   const m = Math.hypot(dx, dy) || 1;
   return { x: dx / m, y: dy / m, m };
-}
-function isMobileLandscapeFifa() {
-  return window.matchMedia('(orientation: landscape)').matches && window.innerWidth <= 1100;
 }
 function updateFifaHud() {
   fifaScoreEl.textContent = `PAX FC ${soccerGame.score.home} - ${soccerGame.score.away} CPU UNITED`;
@@ -763,11 +744,6 @@ function updateFifaHud() {
   fifaFeverEl.textContent = soccerGame.feverReady ? 'FEVER READY: YES' : `FEVER: ${Math.floor(soccerGame.fever)}%`;
   fifaCommentaryEl.textContent = soccerGame.commentary;
 }
-function updateFifaResponsiveUi() {
-  fifaSubEl.textContent = isMobileLandscapeFifa()
-    ? 'LEFT THUMB move · RIGHT THUMB aim, hold, release to shoot · push far to sprint'
-    : 'WASD / arrows move · hold SPACE to charge shot · SHIFT sprint · click SUPER SHOT when close';
-}
 function resetBall(direction = 1) {
   soccerGame.player.x = 160; soccerGame.player.y = 200; soccerGame.player.vx = 0; soccerGame.player.vy = 0;
   soccerGame.cpu.x = 560; soccerGame.cpu.y = 200; soccerGame.cpu.vx = 0; soccerGame.cpu.vy = 0;
@@ -775,17 +751,6 @@ function resetBall(direction = 1) {
   soccerGame.ball.vx = 4 * direction; soccerGame.ball.vy = (Math.random() - 0.5) * 2;
   soccerGame.ball.owner = null;
   soccerGame.kickoffTimer = 1.2;
-}
-function resetSoccerTouchState() {
-  soccerGame.touch.pointers.clear();
-  soccerGame.touch.moveId = null;
-  soccerGame.touch.aimId = null;
-  soccerGame.touch.moveActive = false;
-  soccerGame.touch.aimActive = false;
-  soccerGame.touch.moveX = 0;
-  soccerGame.touch.moveY = 0;
-  soccerGame.touch.sprint = false;
-  soccerGame.shootHeld = false;
 }
 function resetSoccerMatch() {
   soccerGame.timeLeft = soccerGame.matchSeconds;
@@ -796,35 +761,32 @@ function resetSoccerMatch() {
   soccerGame.score.home = 0;
   soccerGame.score.away = 0;
   soccerGame.commentary = 'Kickoff at the luxury nonsense dome.';
-  soccerGame.player = { x: 160, y: 200, vx: 0, vy: 0, r: 18, speed: 170, color: '#57a8ff', aura: '#9fd4ff', name: 'Pax FC' };
-  soccerGame.cpu = { x: 560, y: 200, vx: 0, vy: 0, r: 18, speed: 158, color: '#ff6b5f', aura: '#ffc2b8', name: 'CPU United', mood: 0 };
-  soccerGame.ball = { x: 360, y: 200, vx: 0, vy: 0, r: 10, color: '#f6f1d6', trail: [] };
+  soccerGame.player = { x:160, y:200, vx:0, vy:0, r:18, speed:170, color:'#57a8ff', aura:'#9fd4ff', name:'Pax FC' };
+  soccerGame.cpu = { x:560, y:200, vx:0, vy:0, r:18, speed:158, color:'#ff6b5f', aura:'#ffc2b8', name:'CPU United', mood:0 };
+  soccerGame.ball = { x:360, y:200, vx:0, vy:0, r:10, color:'#f6f1d6', trail:[] };
   soccerGame.particles = [];
-  resetSoccerTouchState();
   resetBall(Math.random() < 0.5 ? -1 : 1);
   updateFifaHud();
-  updateFifaResponsiveUi();
   renderSoccer();
 }
 function startSoccerGame() {
   if (!soccerGame.player) resetSoccerMatch();
   soccerGame.running = true;
   soccerGame.lastTs = 0;
-  updateFifaResponsiveUi();
+  fifaSubEl.textContent = 'WASD / arrows move · hold SPACE to charge shot · SHIFT sprint · click SUPER SHOT when close';
   if (!soccerGame.raf) soccerGame.raf = requestAnimationFrame(soccerLoop);
 }
 function stopSoccerGame() {
   soccerGame.running = false;
-  resetSoccerTouchState();
   if (soccerGame.raf) cancelAnimationFrame(soccerGame.raf);
   soccerGame.raf = 0;
 }
-function addSoccerParticles(x, y, color, power = 1) {
+function addSoccerParticles(x, y, color, power=1) {
   for (let i = 0; i < 8 + power * 4; i++) {
     soccerGame.particles.push({
       x, y,
-      vx: (Math.random() - 0.5) * (50 + power * 40),
-      vy: (Math.random() - 0.5) * (50 + power * 40),
+      vx: (Math.random()-0.5) * (50 + power * 40),
+      vy: (Math.random()-0.5) * (50 + power * 40),
       life: 0.3 + Math.random() * 0.35,
       color
     });
@@ -847,23 +809,12 @@ function kickBall(kicker, targetX, targetY, boost = 1) {
   soccerGame.shootCharge = 0;
   updateFifaHud();
 }
-function getPlayerShotTarget() {
-  if (soccerGame.touch.aimActive) {
-    return {
-      x: clamp(soccerGame.touch.shotTargetX, 520, 720),
-      y: clamp(soccerGame.touch.shotTargetY, 40, 360)
-    };
-  }
-  return {
-    x: 720,
-    y: 200 + (keys['arrowup'] || keys['w'] ? -40 : 0) + (keys['arrowdown'] || keys['s'] ? 40 : 0)
-  };
-}
 function maybePlayerKick(forceSuper = false) {
   const d = dist(soccerGame.player.x, soccerGame.player.y, soccerGame.ball.x, soccerGame.ball.y);
   if (d > soccerGame.player.r + soccerGame.ball.r + 8) return;
-  const target = getPlayerShotTarget();
-  kickBall(soccerGame.player, target.x, target.y, forceSuper ? 2.2 : 1);
+  const tx = 720;
+  const ty = 200 + (keys['arrowup'] || keys['w'] ? -40 : 0) + (keys['arrowdown'] || keys['s'] ? 40 : 0);
+  kickBall(soccerGame.player, tx, ty, forceSuper ? 2.2 : 1);
 }
 function cpuKick() {
   const targetY = 200 + (Math.random() - 0.5) * 120;
@@ -871,28 +822,26 @@ function cpuKick() {
 }
 function updateSoccerInput(dt) {
   if (document.getElementById('fifa-panel').style.display !== 'block') return;
-
   let mx = 0, my = 0;
   if (keys['a'] || keys['arrowleft']) mx -= 1;
   if (keys['d'] || keys['arrowright']) mx += 1;
   if (keys['w'] || keys['arrowup']) my -= 1;
   if (keys['s'] || keys['arrowdown']) my += 1;
-
-  if (soccerGame.touch.moveActive) {
-    mx += soccerGame.touch.moveX;
-    my += soccerGame.touch.moveY;
+  if (soccerGame.touch.active) {
+    const dx = soccerGame.touch.x - soccerGame.player.x;
+    const dy = soccerGame.touch.y - soccerGame.player.y;
+    const n = normalize(dx, dy);
+    if (Math.hypot(dx, dy) > 10) { mx += n.x; my += n.y; }
   }
-
   const n = normalize(mx, my);
-  const sprint = !!keys['shift'] || !!soccerGame.touch.sprint;
-
+  const sprint = keys['shift'];
   soccerGame.player.vx = n.x * soccerGame.player.speed * (sprint ? 1.5 : 1);
   soccerGame.player.vy = n.y * soccerGame.player.speed * (sprint ? 1.5 : 1);
   soccerGame.player.x = clamp(soccerGame.player.x + soccerGame.player.vx * dt, 24, 696);
   soccerGame.player.y = clamp(soccerGame.player.y + soccerGame.player.vy * dt, 24, 376);
 
   const chargeHeld = !!(keys[' '] || soccerGame.shootHeld);
-  if (chargeHeld) soccerGame.shootCharge = clamp(soccerGame.shootCharge + dt * 1.15, 0, 1);
+  if (chargeHeld) soccerGame.shootCharge = clamp(soccerGame.shootCharge + dt * 1.1, 0, 1);
   if (!chargeHeld && soccerGame.shootCharge > 0.04) maybePlayerKick(false);
 }
 function updateCpu(dt) {
@@ -980,60 +929,6 @@ function updateParticles(dt) {
     if (p.life <= 0) soccerGame.particles.splice(i, 1);
   }
 }
-function drawSoccerTouchHud(ctx) {
-  if (!isMobileLandscapeFifa()) return;
-  const t = soccerGame.touch;
-
-  if (t.moveActive) {
-    const baseR = 34;
-    const knobR = 16;
-    ctx.save();
-    ctx.globalAlpha = 0.32;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.arc(t.moveStartX, t.moveStartY, baseR, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.globalAlpha = 0.6;
-    ctx.strokeStyle = '#e8b96a';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(t.moveStartX, t.moveStartY, baseR, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.fillStyle = '#e8b96a';
-    ctx.beginPath();
-    ctx.arc(t.moveStartX + t.moveX * 24, t.moveStartY + t.moveY * 24, knobR, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  if (t.aimActive) {
-    ctx.save();
-    ctx.globalAlpha = 0.65;
-    ctx.strokeStyle = soccerGame.feverReady ? '#ffd35a' : '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
-    ctx.beginPath();
-    ctx.moveTo(soccerGame.ball.x, soccerGame.ball.y);
-    ctx.lineTo(t.shotTargetX, t.shotTargetY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.arc(t.shotTargetX, t.shotTargetY, 18, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  ctx.save();
-  ctx.globalAlpha = 0.5;
-  ctx.fillStyle = '#f5e7c6';
-  ctx.font = 'bold 12px Courier New';
-  ctx.fillText('MOVE', 24, 392);
-  ctx.fillText('AIM / SHOOT', 600, 392);
-  ctx.restore();
-}
 function renderSoccer() {
   const ctx = fifaCtx;
   const { player, cpu, ball } = soccerGame;
@@ -1110,8 +1005,6 @@ function renderSoccer() {
   ctx.font = 'bold 13px Courier New';
   ctx.fillText(`SHOT ${Math.round(soccerGame.shootCharge * 100)}%`, 16, 44);
 
-  drawSoccerTouchHud(ctx);
-
   if (soccerGame.state !== 'playing') {
     ctx.fillStyle = 'rgba(0,0,0,0.48)';
     ctx.fillRect(120, 120, 480, 140);
@@ -1131,7 +1024,6 @@ function soccerLoop(ts) {
   if (!soccerGame.running) { soccerGame.raf = 0; return; }
   const dt = Math.min(0.033, soccerGame.lastTs ? (ts - soccerGame.lastTs) / 1000 : 0.016);
   soccerGame.lastTs = ts;
-
   if (document.getElementById('fifa-panel').style.display === 'block') {
     if (soccerGame.state === 'playing' || soccerGame.state === 'sudden') {
       soccerGame.timeLeft -= soccerGame.state === 'playing' ? dt : 0;
@@ -1146,23 +1038,19 @@ function soccerLoop(ts) {
         }
         updateFifaHud();
       }
-
       updateSoccerInput(dt);
       updateCpu(dt);
       updateBall(dt);
       updateParticles(dt);
-
       if (soccerGame.state === 'sudden' && soccerGame.score.home !== soccerGame.score.away) {
         soccerGame.state = 'ended';
         soccerGame.commentary = soccerGame.score.home > soccerGame.score.away ? 'GOLDEN GOAL. Room erupts.' : 'Golden goal conceded. Grim.';
         updateFifaHud();
       }
-
       updateFifaHud();
     }
     renderSoccer();
   }
-
   soccerGame.raf = requestAnimationFrame(soccerLoop);
 }
 
@@ -1174,96 +1062,19 @@ document.getElementById('fifa-reset').onclick = () => {
   resetSoccerMatch();
   startSoccerGame();
 };
-
-function getFifaCanvasPoint(e) {
-  const r = fifaCanvas.getBoundingClientRect();
-  return {
-    x: (e.clientX - r.left) * (fifaCanvas.width / r.width),
-    y: (e.clientY - r.top) * (fifaCanvas.height / r.height)
-  };
-}
-function releaseMovePointer(pointerId) {
-  if (soccerGame.touch.moveId !== pointerId) return;
-  soccerGame.touch.moveId = null;
-  soccerGame.touch.moveActive = false;
-  soccerGame.touch.moveX = 0;
-  soccerGame.touch.moveY = 0;
-  soccerGame.touch.sprint = false;
-}
-function releaseAimPointer(pointerId) {
-  if (soccerGame.touch.aimId !== pointerId) return;
-  soccerGame.touch.aimId = null;
-  soccerGame.touch.aimActive = false;
-  if (soccerGame.shootHeld && soccerGame.shootCharge > 0.04) {
-    soccerGame.shootHeld = false;
-    maybePlayerKick(false);
-  } else {
-    soccerGame.shootHeld = false;
-    soccerGame.shootCharge = 0;
-  }
-}
-function updateMoveFromPointer(pt) {
-  const dx = pt.x - soccerGame.touch.moveStartX;
-  const dy = pt.y - soccerGame.touch.moveStartY;
-  const maxR = 46;
-  const n = normalize(dx, dy);
-  const mag = Math.min(1, Math.hypot(dx, dy) / maxR);
-  soccerGame.touch.moveX = n.x * mag;
-  soccerGame.touch.moveY = n.y * mag;
-  soccerGame.touch.sprint = mag > 0.72;
-}
-function updateAimFromPointer(pt) {
-  soccerGame.touch.aimX = pt.x;
-  soccerGame.touch.aimY = pt.y;
-  soccerGame.touch.shotTargetX = pt.x;
-  soccerGame.touch.shotTargetY = pt.y;
-}
-
 fifaCanvas.addEventListener('pointerdown', (e) => {
-  const pt = getFifaCanvasPoint(e);
-  soccerGame.touch.pointers.set(e.pointerId, pt);
-
-  const leftSide = pt.x < fifaCanvas.width * 0.45;
-  if (leftSide && soccerGame.touch.moveId == null) {
-    soccerGame.touch.moveId = e.pointerId;
-    soccerGame.touch.moveActive = true;
-    soccerGame.touch.moveStartX = pt.x;
-    soccerGame.touch.moveStartY = pt.y;
-    soccerGame.touch.moveX = 0;
-    soccerGame.touch.moveY = 0;
-  } else if (soccerGame.touch.aimId == null) {
-    soccerGame.touch.aimId = e.pointerId;
-    soccerGame.touch.aimActive = true;
-    soccerGame.shootHeld = true;
-    soccerGame.touch.shotTargetX = pt.x;
-    soccerGame.touch.shotTargetY = pt.y;
-    updateAimFromPointer(pt);
-  }
-
-  if (fifaCanvas.setPointerCapture) fifaCanvas.setPointerCapture(e.pointerId);
-  e.preventDefault();
-}, { passive: false });
-
+  const r = fifaCanvas.getBoundingClientRect();
+  soccerGame.touch.active = true;
+  soccerGame.touch.x = (e.clientX - r.left) * (fifaCanvas.width / r.width);
+  soccerGame.touch.y = (e.clientY - r.top) * (fifaCanvas.height / r.height);
+});
 fifaCanvas.addEventListener('pointermove', (e) => {
-  if (!soccerGame.touch.pointers.has(e.pointerId)) return;
-  const pt = getFifaCanvasPoint(e);
-  soccerGame.touch.pointers.set(e.pointerId, pt);
-
-  if (soccerGame.touch.moveId === e.pointerId) updateMoveFromPointer(pt);
-  if (soccerGame.touch.aimId === e.pointerId) updateAimFromPointer(pt);
-
-  e.preventDefault();
-}, { passive: false });
-
-function handleFifaPointerEnd(e) {
-  releaseMovePointer(e.pointerId);
-  releaseAimPointer(e.pointerId);
-  soccerGame.touch.pointers.delete(e.pointerId);
-}
-fifaCanvas.addEventListener('pointerup', handleFifaPointerEnd);
-fifaCanvas.addEventListener('pointercancel', handleFifaPointerEnd);
-window.addEventListener('resize', updateFifaResponsiveUi);
-
+  if (!soccerGame.touch.active) return;
+  const r = fifaCanvas.getBoundingClientRect();
+  soccerGame.touch.x = (e.clientX - r.left) * (fifaCanvas.width / r.width);
+  soccerGame.touch.y = (e.clientY - r.top) * (fifaCanvas.height / r.height);
+});
+window.addEventListener('pointerup', () => { soccerGame.touch.active = false; });
 resetSoccerMatch();
 
 // ==================== BASKETBALL PANEL ====================
