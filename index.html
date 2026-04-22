@@ -1,187 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <title>The Vibe Room</title>
-  <link rel="stylesheet" href="./styles/main.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>The Vibe Room</title>
+<link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
-  <div id="game"><div id="error-overlay"></div>
+<div id="game"><div id="error-overlay"></div>
 
-    <div id="loading">
-      <h1>THE VIBE ROOM</h1>
-      <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
-      <div id="load-bar-wrap"><div id="load-bar"></div></div>
-      <div id="load-msg">INITIALIZING...</div>
+  <div id="loading">
+    <h1>THE VIBE ROOM</h1>
+    <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
+    <div id="load-bar-wrap"><div id="load-bar"></div></div>
+    <div id="load-msg">INITIALIZING...</div>
+  </div>
+
+  <div id="start" style="display:none;">
+    <h1>THE VIBE ROOM</h1>
+    <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
+    <input id="name-input" placeholder="YOUR NAME" maxlength="14" value="Pax">
+    <div style="color:#e8b96a; font-size:10px; letter-spacing:3px; margin-bottom:10px;">▸ SELECT YOUR CHARACTER ◂</div>
+    <div id="char-grid"></div>
+    <div class="room-row">
+      <input id="room-input" placeholder="ROOM CODE" maxlength="20" value="vibe-room">
+      <button id="begin">ENTER</button>
     </div>
+    <p style="color:#a89878; font-size:10px; letter-spacing:1px; text-align:center; margin-top:10px; max-width: 340px;">Same room code = same room · Desktop click-to-lock · Mobile: joystick + swipe</p>
+  </div>
 
-    <div id="start" style="display:none;">
-      <h1>THE VIBE ROOM</h1>
-      <p class="sub">▸ LUXURY PRIVATE ROOM ◂</p>
-      <input id="name-input" placeholder="YOUR NAME" maxlength="14" value="Pax" />
-      <div class="start-label">▸ SELECT YOUR CHARACTER ◂</div>
-      <div id="char-grid"></div>
-      <div class="room-row">
-        <input id="room-input" placeholder="ROOM CODE" maxlength="20" value="vibe-room" />
-        <button id="begin">ENTER</button>
-      </div>
-      <p class="start-help">Same room code = same room · Desktop click-to-lock · Mobile: joystick + swipe</p>
-    </div>
+  <div id="hud" style="display:none;">
+    <div><b>WASD</b>/joystick · <b>SPACE</b> jump</div>
+    <div><b>E</b> interact · <b>T</b> chat · <b>V</b> TV audio</div>
+    <div><b>SHIFT</b> run · <b>C</b> view · <b>M</b> mic</div>
+  </div>
+  <div id="top-right" style="display:none;">
+    <div class="badge" id="view-badge">3RD · TAP</div>
+    <div class="badge" id="mic-badge">🎤 MIC OFF</div>
+    <div class="badge" id="room-badge">ROOM: —</div>
+    <div class="badge offline" id="conn-badge">● DISCONNECTED</div>
+    <div class="badge" id="admin-badge">ADMIN OFF</div>
+    <div class="badge" id="host-badge">HOST MODE</div>
+  </div>
+  <div id="crosshair" style="display:none;"></div>
+  <div id="prompt"></div>
 
-    <div id="hud" style="display:none;">
-      <div><b>WASD</b>/joystick · <b>SPACE</b> jump</div>
-      <div><b>E</b> interact · <b>T</b> chat · <b>V</b> TV audio</div>
-      <div><b>SHIFT</b> run · <b>C</b> view · <b>M</b> mic</div>
-    </div>
-
-    <div id="top-right" style="display:none;">
-      <div class="badge" id="view-badge">3RD · TAP</div>
-      <div class="badge" id="mic-badge">🎤 MIC OFF</div>
-      <div class="badge" id="room-badge">ROOM: —</div>
-      <div class="badge offline" id="conn-badge">● DISCONNECTED</div>
-      <div class="badge" id="admin-badge">ADMIN OFF</div>
-      <div class="badge" id="host-badge">HOST MODE</div>
-    </div>
-
-    <div id="crosshair" style="display:none;"></div>
-    <div id="prompt"></div>
-
-    <div class="panel" id="whiteboard">
-      <button class="close">✕</button>
-      <h2>◆ WHITEBOARD ◆</h2>
-      <canvas id="board-canvas" width="640" height="360"></canvas>
-      <div class="tools">
-        <input type="color" id="pen-color" value="#e8b96a" />
-        <button data-size="2">THIN</button>
-        <button data-size="5">MED</button>
-        <button data-size="12">THICK</button>
-        <button id="eraser">🧽 ERASE</button>
-        <button id="clear-board">🗑️ CLEAR</button>
-      </div>
-    </div>
-
-    <div class="panel" id="chat-panel">
-      <button class="close">✕</button>
-      <h2>◆ TEAM CHAT ◆</h2>
-      <div id="chat-log"></div>
-      <input id="chat-input" placeholder="Type, ENTER to send..." maxlength="140" />
-    </div>
-
-    <div class="panel" id="ttt-panel">
-      <button class="close">✕</button>
-      <h2>◆ TIC TAC TOE ◆</h2>
-      <div id="ttt-status">YOUR TURN (X)</div>
-      <div id="ttt"></div>
-      <button id="ttt-reset">RESET</button>
-    </div>
-
-    <div class="panel" id="arcade-panel">
-      <button class="close">✕</button>
-      <h2>◆ SNAKE ◆</h2>
-      <canvas id="arcade-canvas" width="320" height="320"></canvas>
-      <div class="arcade-meta">
-        <div id="arcade-score">SCORE: 0</div>
-        <div class="arcade-sub">TAP/ARROWS to change direction</div>
-      </div>
-    </div>
-
-    <div class="panel" id="war-panel">
-      <button class="close">✕</button>
-      <h2>◆ WAR TABLE ◆</h2>
-      <div class="mini-score">ROOM CONTROL CENTER</div>
-      <div class="mini-sub">People in room: <span id="war-count">0</span><br />Use this as your planning table until we make it properly insane.</div>
-    </div>
-
-    <div class="panel" id="fifa-panel">
-      <button class="close">✕</button>
-      <h2>◆ PS5 FIFA ◆</h2>
-      <div class="mini-score" id="fifa-score">HOME 0 - 0 AWAY</div>
-      <div class="mini-sub">Smash shoot to run a fake-highlight attack. Ridiculous, yes. Better than a blank wall, also yes.</div>
-      <button id="fifa-shoot">ATTACK</button>
-      <button id="fifa-reset">RESET</button>
-    </div>
-
-    <div class="panel" id="basketball-panel">
-      <button class="close">✕</button>
-      <h2>◆ BASKETBALL ◆</h2>
-      <div class="mini-score" id="ball-score">MADE: 0 / 0</div>
-      <div class="mini-sub">Tap shoot. 60% make chance because realism is optional.</div>
-      <button id="ball-shoot">SHOOT</button>
-      <button id="ball-reset">RESET</button>
-    </div>
-
-    <div id="admin-panel">
-      <div class="admin-title">ADMIN MOVE MODE</div>
-      <div id="admin-info">Select object</div>
-      <div class="admin-row">
-        <button id="admin-prev">PREV</button>
-        <button id="admin-next">NEXT</button>
-        <button id="admin-save">SAVE</button>
-        <button id="admin-exit">EXIT</button>
-      </div>
-      <div class="admin-row">
-        <button id="admin-left">◀</button>
-        <button id="admin-up">▲</button>
-        <button id="admin-right">▶</button>
-        <button id="admin-down">▼</button>
-      </div>
-      <div class="admin-row">
-        <button id="admin-rotl">⟲</button>
-        <button id="admin-rotr">⟳</button>
-        <button id="admin-raise">＋Y</button>
-        <button id="admin-lower">－Y</button>
-      </div>
-    </div>
-
-    <div id="host-panel">
-      <button id="host-close">✕</button>
-      <h3>◆ HOST CONSOLE ◆</h3>
-      <div class="host-grid">
-        <button class="host-accent" data-vibe="chill">CHILL</button>
-        <button class="host-accent" data-vibe="war">WAR ROOM</button>
-        <button class="host-accent" data-vibe="after">AFTER HOURS</button>
-        <button class="host-accent" data-vibe="game">GAME NIGHT</button>
-      </div>
-      <input id="host-media-url" placeholder="Paste YouTube URL or video ID" />
-      <div class="host-row">
-        <button id="host-load-media" class="host-accent">LOAD WALL TV</button>
-        <button id="host-stop-media">STOP TV</button>
-      </div>
-      <div class="host-row">
-        <button id="host-money-rain">MONEY RAIN</button>
-        <button id="host-pulse">PULSE</button>
-      </div>
-      <div class="host-info" id="host-info">Pax can control vibe, events, and the wall TV from here.</div>
-    </div>
-
-    <div id="tv-overlay"><iframe id="tv-iframe" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
-    <button id="tv-audio-join">♪ ENABLE TV AUDIO</button>
-
-    <div id="mobile-ctrls">
-      <div id="joystick"><div id="joy-knob"></div></div>
-      <div id="mobile-btns">
-        <div class="row">
-          <button id="btn-mic">🎤</button>
-          <button id="btn-view">👁</button>
-        </div>
-        <div class="row"><button id="btn-music">♪</button></div>
-        <div class="row">
-          <button id="btn-t">💬</button>
-          <button id="btn-e">E</button>
-        </div>
-        <button id="btn-jump">↑</button>
-      </div>
+  <div class="panel" id="whiteboard">
+    <button class="close">✕</button>
+    <h2>◆ WHITEBOARD ◆</h2>
+    <canvas id="board-canvas" width="640" height="360"></canvas>
+    <div class="tools">
+      <input type="color" id="pen-color" value="#e8b96a">
+      <button data-size="2">THIN</button>
+      <button data-size="5">MED</button>
+      <button data-size="12">THICK</button>
+      <button id="eraser">🧽 ERASE</button>
+      <button id="clear-board">🗑️ CLEAR</button>
     </div>
   </div>
 
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js"
-      }
-    }
-  </script>
-  <script type="module" src="./js/app.js"></script>
+  <div class="panel" id="chat-panel">
+    <button class="close">✕</button>
+    <h2>◆ TEAM CHAT ◆</h2>
+    <div id="chat-log"></div>
+    <input id="chat-input" placeholder="Type, ENTER to send..." maxlength="140">
+  </div>
+
+  <div class="panel" id="ttt-panel">
+    <button class="close">✕</button>
+    <h2>◆ TIC TAC TOE ◆</h2>
+    <div id="ttt-status">YOUR TURN (X)</div>
+    <div id="ttt"></div>
+    <button id="ttt-reset">RESET</button>
+  </div>
+
+  <div class="panel" id="arcade-panel">
+    <button class="close">✕</button>
+    <h2>◆ SNAKE ◆</h2>
+    <canvas id="arcade-canvas" width="320" height="320" style="display:block; background:#000; border:1px solid #c89b4a; image-rendering:pixelated; margin: 0 auto; border-radius:3px;"></canvas>
+    <div style="color:#e8b96a; text-align:center; margin-top:8px; font-size:11px; letter-spacing:1px;">
+      <div id="arcade-score">SCORE: 0</div>
+      <div style="margin-top:4px; opacity:0.6;">TAP/ARROWS to change direction</div>
+    </div>
+  </div>
+
+  <div class="panel" id="war-panel">
+    <button class="close">✕</button>
+    <h2>◆ WAR TABLE ◆</h2>
+    <div class="mini-score">ROOM CONTROL CENTER</div>
+    <div class="mini-sub">People in room: <span id="war-count">0</span><br>Use this as your planning table until we make it properly insane.</div>
+  </div>
+
+  <div class="panel" id="fifa-panel">
+    <button class="close">✕</button>
+    <h2>◆ PS5 FIFA ◆</h2>
+    <div class="mini-score" id="fifa-score">HOME 0 - 0 AWAY</div>
+    <div class="mini-sub">Smash shoot to run a fake-highlight attack. Ridiculous, yes. Better than a blank wall, also yes.</div>
+    <button id="fifa-shoot">ATTACK</button>
+    <button id="fifa-reset">RESET</button>
+  </div>
+
+  <div class="panel" id="basketball-panel">
+    <button class="close">✕</button>
+    <h2>◆ BASKETBALL ◆</h2>
+    <div class="mini-score" id="ball-score">MADE: 0 / 0</div>
+    <div class="mini-sub">Tap shoot. 60% make chance because apparently realism is optional in luxury nonsense rooms.</div>
+    <button id="ball-shoot">SHOOT</button>
+    <button id="ball-reset">RESET</button>
+  </div>
+
+  <div id="admin-panel">
+    <div class="admin-title">ADMIN MOVE MODE</div>
+    <div id="admin-info">Select object</div>
+    <div class="admin-row">
+      <button id="admin-prev">PREV</button>
+      <button id="admin-next">NEXT</button>
+      <button id="admin-save">SAVE</button>
+      <button id="admin-exit">EXIT</button>
+    </div>
+    <div class="admin-row">
+      <button id="admin-left">◀</button>
+      <button id="admin-up">▲</button>
+      <button id="admin-right">▶</button>
+      <button id="admin-down">▼</button>
+    </div>
+    <div class="admin-row">
+      <button id="admin-rotl">⟲</button>
+      <button id="admin-rotr">⟳</button>
+      <button id="admin-raise">＋Y</button>
+      <button id="admin-lower">－Y</button>
+    </div>
+  </div>
+
+  
+  
+  <div id="host-panel">
+    <button id="host-close">✕</button>
+    <h3>◆ HOST CONSOLE ◆</h3>
+    <div class="host-grid">
+      <button class="host-accent" data-vibe="chill">CHILL</button>
+      <button class="host-accent" data-vibe="war">WAR ROOM</button>
+      <button class="host-accent" data-vibe="after">AFTER HOURS</button>
+      <button class="host-accent" data-vibe="game">GAME NIGHT</button>
+    </div>
+    <input id="host-media-url" placeholder="Paste YouTube URL or video ID">
+    <div class="host-row">
+      <button id="host-load-media" class="host-accent" style="flex:1;">LOAD WALL TV</button>
+      <button id="host-stop-media" style="flex:1;">STOP TV</button>
+    </div>
+    <div class="host-row">
+      <button id="host-money-rain" style="flex:1;">MONEY RAIN</button>
+      <button id="host-pulse" style="flex:1;">PULSE</button>
+    </div>
+    <div class="host-info" id="host-info">Pax can control vibe, events, and the wall TV from here.</div>
+  </div>
+
+  <div id="tv-overlay"><iframe id="tv-iframe" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+  <button id="tv-audio-join">V / ♪ TV AUDIO</button>
+
+  <div id="mobile-ctrls">
+    <div id="joystick"><div id="joy-knob"></div></div>
+    <div id="mobile-btns">
+      <div class="row">
+        <button id="btn-mic">🎤</button>
+        <button id="btn-view">👁</button>
+      </div>
+      <div class="row">
+        <button id="btn-music">♪</button>
+      </div>
+      <div class="row">
+        <button id="btn-t">💬</button>
+        <button id="btn-e">E</button>
+      </div>
+      <button id="btn-jump" style="width:62px;">↑</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.158/build/three.min.js"></script>
+<script src="js/app-1-core.js"></script>
+<script src="js/app-2-room.js"></script>
+<script src="js/app-3-systems.js"></script>
+<script src="js/app-4-main.js"></script>
 </body>
 </html>
