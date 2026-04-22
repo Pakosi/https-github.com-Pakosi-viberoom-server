@@ -222,3 +222,177 @@ canvas { display: block; }
 @media (max-width: 700px) {
   .fifa-meta { grid-template-columns: 1fr; }
 }
+
+/* Soccer mobile controls */
+#fifa-panel {
+  position: relative;
+  width: min(760px, 96vw);
+  max-width: 96vw;
+  text-align: center;
+  overflow: hidden;
+}
+#fifa-canvas {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  aspect-ratio: 720 / 400;
+  margin: 0 auto;
+  border: 1px solid #4a3a28;
+  border-radius: 6px;
+  background: #0d4a20;
+  touch-action: none;
+  box-shadow: 0 0 28px rgba(0,0,0,0.45), 0 0 18px rgba(200,155,74,0.18);
+}
+.soccer-mobile-controls {
+  display: none;
+}
+@media (pointer: coarse), (max-width: 900px) {
+  #fifa-panel {
+    width: min(100vw - 12px, 860px);
+    max-height: 96vh;
+    padding: 10px 10px 124px;
+    border-radius: 10px;
+  }
+  #fifa-canvas {
+    width: min(100%, calc(100vw - 24px));
+    max-width: none;
+  }
+  .soccer-mobile-controls {
+    display: block;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 8px;
+    height: 108px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .soccer-stick-zone {
+    position: absolute;
+    left: 10px;
+    bottom: 0;
+    width: 116px;
+    height: 108px;
+    pointer-events: none;
+  }
+  .soccer-stick-base {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.26);
+    background: rgba(0,0,0,0.28);
+    box-shadow: inset 0 0 18px rgba(255,255,255,0.06);
+    pointer-events: auto;
+    touch-action: none;
+  }
+  .soccer-stick-knob {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(232,185,106,0.95);
+    border: 2px solid #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.35);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .soccer-action-stack {
+    position: absolute;
+    right: 10px;
+    bottom: 0;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    pointer-events: auto;
+  }
+  .soccer-action-btn {
+    min-width: 76px;
+    height: 56px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 2px solid rgba(255,255,255,0.85);
+    background: rgba(20,16,12,0.85);
+    color: #f3dfb2;
+    font: 700 12px/1 monospace;
+    letter-spacing: 1px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    touch-action: none;
+  }
+  .soccer-action-btn.shoot {
+    background: rgba(200,155,74,0.95);
+    color: #111;
+    min-width: 88px;
+    height: 64px;
+  }
+  .soccer-action-btn.active {
+    transform: translateY(1px) scale(0.98);
+    filter: brightness(1.08);
+  }
+  .fifa-meta {
+    gap: 6px;
+    margin: 8px 0 4px;
+  }
+  .fifa-meta > div {
+    padding: 7px;
+    font-size: 10px;
+  }
+}
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 520px) {
+  #fifa-panel {
+    width: min(100vw - 10px, 980px);
+    max-height: 98vh;
+    padding: 8px 8px 96px;
+  }
+  #fifa-canvas {
+    width: min(100%, calc(100vw - 18px));
+    max-height: calc(100vh - 166px);
+  }
+  .soccer-mobile-controls {
+    bottom: 2px;
+    height: 82px;
+  }
+  .soccer-stick-zone {
+    left: 8px;
+    width: 84px;
+    height: 80px;
+  }
+  .soccer-stick-base {
+    width: 72px;
+    height: 72px;
+  }
+  .soccer-stick-knob {
+    width: 30px;
+    height: 30px;
+  }
+  .soccer-action-stack {
+    right: 8px;
+    gap: 8px;
+  }
+  .soccer-action-btn {
+    min-width: 62px;
+    height: 44px;
+    font-size: 10px;
+  }
+  .soccer-action-btn.shoot {
+    min-width: 74px;
+    height: 50px;
+  }
+  .fifa-meta {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    margin: 6px 0 2px;
+  }
+  .fifa-meta > div {
+    padding: 6px;
+    font-size: 9px;
+  }
+}
+@media (max-width: 700px) {
+  .fifa-meta { grid-template-columns: 1fr; }
+}
