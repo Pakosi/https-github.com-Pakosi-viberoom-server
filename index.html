@@ -37,11 +37,20 @@
   <div id="top-right" style="display:none;">
     <div class="badge" id="view-badge">3RD · TAP</div>
     <div class="badge" id="mic-badge">🎤 MIC OFF</div>
+    <label class="badge graphics-badge" for="graphics-select">GRAPHICS
+      <select id="graphics-select" aria-label="Graphics quality">
+        <option value="low">LOW</option>
+        <option value="balanced">BALANCED</option>
+        <option value="high">HIGH</option>
+        <option value="ultra">ULTRA</option>
+      </select>
+    </label>
     <div class="badge" id="room-badge">ROOM: —</div>
     <div class="badge offline" id="conn-badge">● DISCONNECTED</div>
     <div class="badge" id="admin-badge">ADMIN OFF</div>
     <div class="badge" id="host-badge">HOST MODE</div>
   </div>
+  <div id="perf-toast">Performance optimized</div>
   <div id="crosshair" style="display:none;"></div>
   <div id="prompt"></div>
 

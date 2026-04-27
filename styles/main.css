@@ -23,6 +23,32 @@ canvas { display: block; }
 .badge { background: rgba(0,0,0,0.6); color: #e8b96a; padding: 5px 10px; font-size: 10px; border: 1px solid #c89b4a; letter-spacing: 1px; pointer-events: auto; cursor: pointer; border-radius: 3px; backdrop-filter: blur(8px); }
 .badge.live { background: #3a8a5a; color: #000; border-color: #7adf9a; }
 .badge.offline { border-color: #a04040; color: #e88080; }
+.graphics-badge { display: flex; align-items: center; gap: 6px; cursor: default; }
+#graphics-select {
+  background: #120f0b;
+  color: #f0c875;
+  border: 1px solid #5c4726;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font: 10px/1.2 'Courier New', monospace;
+  letter-spacing: 1px;
+}
+#perf-toast {
+  position: absolute;
+  right: 14px;
+  top: 236px;
+  z-index: 24;
+  display: none;
+  background: rgba(9,10,16,0.92);
+  color: #7adf9a;
+  border: 1px solid #7adf9a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: 11px/1.2 'Courier New', monospace;
+  letter-spacing: 1px;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
 
 #crosshair { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; transform: translate(-50%,-50%); pointer-events: none; }
 #crosshair::before, #crosshair::after { content:''; position: absolute; background: rgba(255,255,255,0.7); mix-blend-mode: difference; }
@@ -118,6 +144,11 @@ canvas { display: block; }
     max-width: 120px;
     padding: 7px 10px;
     font-size: 10px;
+  }
+  #perf-toast {
+    top: auto;
+    right: 10px;
+    bottom: 84px;
   }
 }
 

@@ -756,7 +756,18 @@ document.getElementById('begin').onclick = () => {
   connectWS(rid);
   refreshAdminInfo();
   document.getElementById('host-badge').style.display = isHostUser() ? 'block' : 'none';
+  graphicsPerf.monitoring = false;
+  setTimeout(() => { graphicsPerf.monitoring = true; }, 3000);
 };
+
+const graphicsSelect = document.getElementById('graphics-select');
+if (graphicsSelect) {
+  syncGraphicsSelect();
+  graphicsSelect.onchange = () => {
+    graphicsAutoFallbacks = 0;
+    setGraphicsQuality(graphicsSelect.value, { save:true, notify:true });
+  };
+}
 
 // ==================== REMOTES ====================
 function updateRemotes(dt) {
@@ -826,6 +837,33 @@ function updateRoomFx(t, dt) {
 }
 
 // ==================== LOOP ====================
+const graphicsPerf = {
+  monitoring: false,
+  sampleTime: 0,
+  frames: 0,
+  lowFor: 0,
+  cooldown: 0
+};
+function sampleGraphicsPerformance(dt) {
+  if (!graphicsPerf.monitoring) return;
+  graphicsPerf.sampleTime += dt;
+  graphicsPerf.frames += 1;
+  graphicsPerf.cooldown = Math.max(0, graphicsPerf.cooldown - dt);
+  if (graphicsPerf.sampleTime < 1.5) return;
+
+  const fps = graphicsPerf.frames / graphicsPerf.sampleTime;
+  const limit = MOBILE ? 24 : 30;
+  graphicsPerf.lowFor = fps < limit ? graphicsPerf.lowFor + graphicsPerf.sampleTime : 0;
+  graphicsPerf.sampleTime = 0;
+  graphicsPerf.frames = 0;
+
+  if (graphicsPerf.lowFor >= 5 && graphicsPerf.cooldown <= 0) {
+    if (lowerGraphicsQualityAuto()) {
+      graphicsPerf.cooldown = 12;
+      graphicsPerf.lowFor = 0;
+    }
+  }
+}
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -835,13 +873,18 @@ function animate() {
   updateRoomFx(t, dt);
   updateCamera();
   renderer.render(scene, camera);
+  sampleGraphicsPerformance(dt);
 }
 animate();
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
+  deviceInfo.width = window.innerWidth;
+  deviceInfo.height = window.innerHeight;
+  deviceInfo.dpr = window.devicePixelRatio || 1;
   renderer.setSize(window.innerWidth, window.innerHeight);
+  applyGraphicsQuality(false);
   drawAttractOrGame();
 });
 

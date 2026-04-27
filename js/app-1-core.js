@@ -51,27 +51,116 @@ CHARS.forEach((c, i) => {
 
 // ==================== THREE CORE ====================
 const MOBILE = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900;
-const HQ = !MOBILE;
+const deviceInfo = {
+  mobile: MOBILE,
+  dpr: window.devicePixelRatio || 1,
+  width: window.innerWidth,
+  height: window.innerHeight,
+  cores: navigator.hardwareConcurrency || 4
+};
+const QUALITY_ORDER = ['low', 'balanced', 'high', 'ultra'];
+const QUALITY_PRESETS = {
+  low:      { label:'LOW',      mobileDpr:0.9, desktopDpr:1.0, shadow:0,    shadowMap:512,  fog:1.16, exposure:0.94, light:0.88, spotShadows:false },
+  balanced: { label:'BALANCED', mobileDpr:1.2, desktopDpr:1.35, shadow:0.8,  shadowMap:768,  fog:1.04, exposure:1.0,  light:1.0,  spotShadows:false },
+  high:     { label:'HIGH',     mobileDpr:1.45, desktopDpr:1.75, shadow:1.0, shadowMap:1024, fog:0.94, exposure:1.05, light:1.08, spotShadows:!MOBILE },
+  ultra:    { label:'ULTRA',    mobileDpr:1.55, desktopDpr:2.0,  shadow:1.0, shadowMap:1536, fog:0.86, exposure:1.1,  light:1.14, spotShadows:!MOBILE }
+};
+function detectGraphicsQuality() {
+  const saved = localStorage.getItem('viberoom.graphics');
+  if (QUALITY_PRESETS[saved]) return saved;
+  const pixels = deviceInfo.width * deviceInfo.height * deviceInfo.dpr * deviceInfo.dpr;
+  if (deviceInfo.mobile) return 'balanced';
+  if (deviceInfo.cores >= 8 && deviceInfo.dpr <= 2 && pixels <= 9000000) return 'ultra';
+  if (deviceInfo.cores >= 4 && pixels <= 7000000) return 'high';
+  return 'balanced';
+}
+let graphicsQuality = detectGraphicsQuality();
+let graphicsAutoFallbacks = 0;
+let currentBaseFog = MOBILE ? 0.0022 : 0.0035;
+const qualitySpotlights = [];
+const HQ = graphicsQuality === 'high' || graphicsQuality === 'ultra';
+function getQualityPreset() {
+  return QUALITY_PRESETS[graphicsQuality] || QUALITY_PRESETS.balanced;
+}
+function getQualityDpr() {
+  const q = getQualityPreset();
+  const cap = deviceInfo.mobile ? q.mobileDpr : q.desktopDpr;
+  return Math.max(0.75, Math.min(deviceInfo.dpr, cap));
+}
+function getQualityExposure(base) {
+  return base * getQualityPreset().exposure;
+}
+function getQualityFog(base) {
+  return base * getQualityPreset().fog;
+}
+function showPerformanceToast(text='Performance optimized') {
+  const el = document.getElementById('perf-toast');
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = 'block';
+  clearTimeout(showPerformanceToast._timer);
+  showPerformanceToast._timer = setTimeout(() => { el.style.display = 'none'; }, 2600);
+}
+function syncGraphicsSelect() {
+  const sel = document.getElementById('graphics-select');
+  if (sel && sel.value !== graphicsQuality) sel.value = graphicsQuality;
+}
+function applyGraphicsQuality(save=true, notify=false) {
+  const q = getQualityPreset();
+  renderer.setPixelRatio(getQualityDpr());
+  renderer.shadowMap.enabled = q.shadow > 0;
+  renderer.shadowMap.type = q.shadowMap >= 1024 ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
+  renderer.toneMappingExposure = getQualityExposure(MOBILE ? 1.75 : 1.95);
+  scene.fog.density = getQualityFog(currentBaseFog);
+
+  if (typeof key !== 'undefined') {
+    key.intensity = (MOBILE ? 1.45 : 1.35) * q.light;
+    key.castShadow = q.shadow > 0;
+    key.shadow.mapSize.set(q.shadowMap, q.shadowMap);
+  }
+  if (typeof purpleFill !== 'undefined') purpleFill.intensity = (MOBILE ? 1.5 : 2.2) * q.light;
+  if (typeof goldFill !== 'undefined') goldFill.intensity = (MOBILE ? 1.45 : 2.0) * q.light;
+  if (typeof frontFill !== 'undefined') frontFill.intensity = (MOBILE ? 0.8 : 1.0) * q.light;
+  if (typeof warmFloorFill !== 'undefined') warmFloorFill.intensity = (MOBILE ? 0.9 : 1.2) * q.light;
+  for (const s of qualitySpotlights) {
+    s.castShadow = q.spotShadows;
+    s.intensity = (s.userData.baseIntensity || s.intensity) * q.light;
+    s.shadow.mapSize.set(Math.min(q.shadowMap, 1024), Math.min(q.shadowMap, 1024));
+  }
+  if (save) localStorage.setItem('viberoom.graphics', graphicsQuality);
+  syncGraphicsSelect();
+  if (notify) showPerformanceToast(`Graphics: ${q.label}`);
+}
+function setGraphicsQuality(next, opts={}) {
+  if (!QUALITY_PRESETS[next] || next === graphicsQuality) return;
+  graphicsQuality = next;
+  applyGraphicsQuality(opts.save !== false, !!opts.notify);
+}
+function lowerGraphicsQualityAuto() {
+  const idx = QUALITY_ORDER.indexOf(graphicsQuality);
+  if (idx <= 0) return false;
+  graphicsAutoFallbacks += 1;
+  setGraphicsQuality(QUALITY_ORDER[idx - 1], { save:false });
+  showPerformanceToast('Performance optimized');
+  return true;
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0d14);
-scene.fog = new THREE.FogExp2(0x0a0d14, MOBILE ? 0.0022 : 0.0035);
+scene.fog = new THREE.FogExp2(0x0a0d14, getQualityFog(currentBaseFog));
 
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 240);
 const renderer = new THREE.WebGLRenderer({
   antialias: true,
   powerPreference: 'high-performance'
 });
-renderer.setPixelRatio(
-  MOBILE ? Math.min(window.devicePixelRatio || 1, 1.15)
-         : Math.min(window.devicePixelRatio, 2)
-);
+renderer.setPixelRatio(getQualityDpr());
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled = getQualityPreset().shadow > 0;
+renderer.shadowMap.type = getQualityPreset().shadowMap >= 1024 ? THREE.PCFSoftShadowMap : THREE.BasicShadowMap;
 if ('outputColorSpace' in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = MOBILE ? 1.75 : 1.95;
+renderer.toneMappingExposure = getQualityExposure(MOBILE ? 1.75 : 1.95);
 document.getElementById('game').appendChild(renderer.domElement);
 
 // ==================== HELPERS ====================
@@ -320,8 +409,11 @@ function addSpot(x,y,z,color,intensity=1,distance=22,angle=Math.PI/5,targetY=0) 
   s.castShadow = true;
   s.shadow.mapSize.set(1024,1024);
   s.target.position.set(x, targetY, z);
+  s.userData.baseIntensity = intensity;
+  qualitySpotlights.push(s);
   scene.add(s);
   scene.add(s.target);
+  applyGraphicsQuality(false);
   return s;
 }
 
@@ -365,3 +457,4 @@ const warmFloorFill = new THREE.PointLight(0xffd79a, MOBILE ? 0.9 : 1.2, 22);
 warmFloorFill.position.set(-8, 2.2, 4);
 scene.add(warmFloorFill);
 
+applyGraphicsQuality(false);

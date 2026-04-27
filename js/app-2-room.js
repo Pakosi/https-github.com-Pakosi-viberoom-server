@@ -240,9 +240,10 @@ function applyVibe(mode) {
     mediaFrameColor = 0x203247; floorTint = 0xf7fbff;
   }
 
+  currentBaseFog = fog;
   scene.background.setHex(bg);
-  scene.fog.density = fog;
-  renderer.toneMappingExposure = expo;
+  scene.fog.density = getQualityFog(fog);
+  renderer.toneMappingExposure = getQualityExposure(expo);
   key.color.setHex(keyColor);
   purpleFill.color.setHex(purple);
   goldFill.color.setHex(gold);
@@ -275,6 +276,7 @@ function applyVibe(mode) {
   if (centerSculpture && centerSculpture.material) {
     centerSculpture.material.emissive.setHex(sculptureEmissive);
   }
+  applyGraphicsQuality(false);
 }
 function applyHostEvent(evt, local=false) {
   if (!evt || !evt.kind) return;
@@ -932,7 +934,7 @@ ensureMoneyPool();
       }
     });
   });
+  applyGraphicsQuality(false);
 } catch (err) {
   showFatal(err && err.stack ? err.stack : err);
 }
-
