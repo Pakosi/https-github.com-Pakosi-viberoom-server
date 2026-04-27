@@ -1,6 +1,9 @@
 // ==================== PLAYER SPAWN & ROOM BOUNDS ====================
 const FLOOR_Y = 0;
-const BOUNDS = { minX: -21.2, maxX: 21.2, minZ: -14.0, maxZ: 14.0 };
+const BOUNDS = { minX: -42.2, maxX: 42.2, minZ: -28.6, maxZ: 28.6 };
+const LOFT_Y = 7.2;
+const LOFT_ZONE = { minX: 18.0, maxX: 41.0, minZ: -24.0, maxZ: 17.0 };
+const STAIR_ZONE = { minX: 28.5, maxX: 39.5, minZ: 2.5, maxZ: 17.0 };
 
 const INTERACTS = [
   { type: 'whiteboard', x: 12.5,  z: -11.7, r: 4.4, label: 'PRESENTATION WALL ✏️' },
@@ -13,7 +16,7 @@ const INTERACTS = [
   { type: 'fifa',       x: 14.6,  z: -3.8,  r: 3.6, label: 'PS5 FIFA ⚽', anchorId:'fifa_zone', offsetX:0, offsetZ:2.8 },
   { type: 'money',      x: -16.0, z: 12.0,  r: 3.0, label: 'SAFE & CASH 💰', anchorId:'money_zone', offsetX:1.1, offsetZ:1.0 },
   { type: 'hostconsole', x: -3.0, z: -10.2, r: 2.6, label: 'HOST CONSOLE 🎛️', anchorId:'host_console' },
-  { type: 'mediawall', x: 0.0, z: 12.0, r: 4.2, label: 'MEDIA WALL 📺' },
+  { type: 'mediawall', x: 0.0, z: 25.5, r: 6.0, label: 'MEDIA WALL 📺' },
 ];
 
 syncInteractAnchors();
@@ -573,6 +576,15 @@ function canStand(x, z) {
   for (const b of BLOCKERS) if (collideRectCircle(x, z, b, PLAYER_RADIUS)) return false;
   return true;
 }
+function groundAt(x, z) {
+  if (x >= STAIR_ZONE.minX && x <= STAIR_ZONE.maxX && z >= STAIR_ZONE.minZ && z <= STAIR_ZONE.maxZ) {
+    return FLOOR_Y + ((z - STAIR_ZONE.minZ) / (STAIR_ZONE.maxZ - STAIR_ZONE.minZ)) * LOFT_Y;
+  }
+  if (x >= LOFT_ZONE.minX && x <= LOFT_ZONE.maxX && z >= LOFT_ZONE.minZ && z <= LOFT_ZONE.maxZ) {
+    return LOFT_Y;
+  }
+  return FLOOR_Y;
+}
 
 function updatePlayer(dt, t) {
   if (anyPanelOpen() || adminMode) { player._moving = false; return; }
@@ -599,8 +611,9 @@ function updatePlayer(dt, t) {
   const tryZ = player.group.position.z + mz*dt;
   if (canStand(player.group.position.x, tryZ)) player.group.position.z = tryZ;
 
-  if (ny <= FLOOR_Y) {
-    ny = FLOOR_Y;
+  const groundY = groundAt(player.group.position.x, player.group.position.z);
+  if (ny <= groundY) {
+    ny = groundY;
     player.vel.y = 0;
     player.onGround = true;
   }

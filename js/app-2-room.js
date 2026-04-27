@@ -27,6 +27,8 @@ const moneyRainGroup = new THREE.Group();
 scene.add(moneyRainGroup);
 
 let mediaScreenMesh = null;
+let mediaScreenHalfW = 4.8;
+let mediaScreenHalfH = 2.55;
 let mediaScreenCanvas = null;
 let mediaScreenCtx = null;
 let mediaScreenTex = null;
@@ -209,10 +211,10 @@ function placeTVOverlay() {
   if (facing < 0.22) { tvOverlay.style.display = 'none'; return; }
 
   const corners = [
-    new THREE.Vector3(-4.8,  2.55, 0),
-    new THREE.Vector3( 4.8,  2.55, 0),
-    new THREE.Vector3(-4.8, -2.55, 0),
-    new THREE.Vector3( 4.8, -2.55, 0)
+    new THREE.Vector3(-mediaScreenHalfW,  mediaScreenHalfH, 0),
+    new THREE.Vector3( mediaScreenHalfW,  mediaScreenHalfH, 0),
+    new THREE.Vector3(-mediaScreenHalfW, -mediaScreenHalfH, 0),
+    new THREE.Vector3( mediaScreenHalfW, -mediaScreenHalfH, 0)
   ];
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -580,6 +582,13 @@ function syncInteractAnchors() {
 }
 
 function buildCustomRoom() {
+  const ROOM_W = 88;
+  const ROOM_D = 60;
+  const HALF_W = ROOM_W / 2;
+  const HALF_D = ROOM_D / 2;
+  const WALL_H = 15;
+  const LOFT_H = 7.2;
+
   floorMat = new THREE.MeshStandardMaterial({
       map: marbleTex,
       roughness: MOBILE ? 0.24 : 0.16,
@@ -588,7 +597,7 @@ function buildCustomRoom() {
     });
   floorMaterials.push(floorMat);
   const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(44, 30),
+    new THREE.PlaneGeometry(ROOM_W, ROOM_D),
     floorMat
   );
   floor.rotation.x = -Math.PI/2;
@@ -596,15 +605,15 @@ function buildCustomRoom() {
   roomGroup.add(floor);
 
   const entryGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(10, 4.5),
+    new THREE.PlaneGeometry(18, 8),
     new THREE.MeshBasicMaterial({ color: 0x173044, transparent: true, opacity: 0.18 })
   );
   entryGlow.rotation.x = -Math.PI/2;
-  entryGlow.position.set(0, 0.03, 12.5);
+  entryGlow.position.set(0, 0.03, 23.5);
   roomGroup.add(entryGlow);
 
   const underGlow = new THREE.Mesh(
-    new THREE.PlaneGeometry(40, 26),
+    new THREE.PlaneGeometry(78, 52),
     new THREE.MeshBasicMaterial({ color: 0x0b1224, transparent: true, opacity: 0.22 })
   );
   underGlow.rotation.x = -Math.PI/2;
@@ -628,102 +637,185 @@ function buildCustomRoom() {
   roomGroup.add(commandRug);
 
   const ceiling = new THREE.Mesh(
-    new THREE.BoxGeometry(44, 0.45, 30),
+    new THREE.BoxGeometry(ROOM_W, 0.45, ROOM_D),
     new THREE.MeshStandardMaterial({ color: 0x070a10, roughness: 0.92, metalness: 0.04 })
   );
-  ceiling.position.set(0, 10.25, 0);
+  ceiling.position.set(0, WALL_H + 0.25, 0);
   ceiling.receiveShadow = true;
   roomGroup.add(ceiling);
 
   const leftWallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0xe8e0d8, roughness: 0.82, metalness: 0.04 });
   wallMaterials.push(leftWallMat);
   const leftWall = new THREE.Mesh(
-    new THREE.BoxGeometry(0.45, 10, 30),
+    new THREE.BoxGeometry(0.45, WALL_H, ROOM_D),
     leftWallMat
   );
-  leftWall.position.set(-22, 5, 0);
+  leftWall.position.set(-HALF_W, WALL_H / 2, 0);
   roomGroup.add(leftWall);
 
   const rightWall = leftWall.clone();
-  rightWall.position.x = 22;
+  rightWall.position.x = HALF_W;
   roomGroup.add(rightWall);
 
   const backWallMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0xf2ebe0, roughness: 0.82, metalness: 0.04 });
   wallMaterials.push(backWallMat);
   const backWall = new THREE.Mesh(
-    new THREE.BoxGeometry(44, 10, 0.45),
+    new THREE.BoxGeometry(ROOM_W, WALL_H, 0.45),
     backWallMat
   );
-  backWall.position.set(0, 5, 15);
+  backWall.position.set(0, WALL_H / 2, HALF_D);
   roomGroup.add(backWall);
 
-  for (const z of [-14.72, 14.72]) {
-    const baseboard = box(43.2, 0.18, 0.12, 0xd3a24f, 0.28, 0.7);
+  for (const z of [-HALF_D + 0.28, HALF_D - 0.28]) {
+    const baseboard = box(ROOM_W - 1.2, 0.18, 0.12, 0xd3a24f, 0.28, 0.7);
     baseboard.position.set(0, 0.64, z);
     roomGroup.add(baseboard);
   }
-  for (const x of [-21.72, 21.72]) {
-    const baseboard = box(0.12, 0.18, 29.2, 0xd3a24f, 0.28, 0.7);
+  for (const x of [-HALF_W + 0.28, HALF_W - 0.28]) {
+    const baseboard = box(0.12, 0.18, ROOM_D - 1.2, 0xd3a24f, 0.28, 0.7);
     baseboard.position.set(x, 0.64, 0);
     roomGroup.add(baseboard);
   }
-  for (let x = -16; x <= 16; x += 8) {
+  for (let x = -32; x <= 32; x += 8) {
     const panel = roundedBox(5.2, 3.2, 0.12, 0x202834, 0.58, 0.16);
-    panel.position.set(x, 4.2, 14.68);
+    panel.position.set(x, 4.2, HALF_D - 0.32);
     roomGroup.add(panel);
     const inset = box(4.45, 0.05, 0.14, 0xe8b96a, 0.2, 0.72);
-    inset.position.set(x, 5.72, 14.58);
+    inset.position.set(x, 5.72, HALF_D - 0.42);
     roomGroup.add(inset);
   }
-  for (let z = -9; z <= 9; z += 6) {
+  for (let z = -21; z <= 21; z += 7) {
     const leftPanel = roundedBox(0.12, 3.0, 4.0, 0x1b2230, 0.62, 0.12);
-    leftPanel.position.set(-21.68, 4.0, z);
+    leftPanel.position.set(-HALF_W + 0.32, 4.0, z);
     roomGroup.add(leftPanel);
     const rightPanel = leftPanel.clone();
-    rightPanel.position.x = 21.68;
+    rightPanel.position.x = HALF_W - 0.32;
     roomGroup.add(rightPanel);
   }
 
   // front skyline window wall
-  const windowFrameTop = box(44, 0.45, 0.45, 0x12161f, 0.7, 0.2);
-  windowFrameTop.position.set(0, 9.8, -15);
+  const windowFrameTop = box(ROOM_W, 0.45, 0.45, 0x12161f, 0.7, 0.2);
+  windowFrameTop.position.set(0, WALL_H - 0.45, -HALF_D);
   roomGroup.add(windowFrameTop);
-  const windowFrameBot = box(44, 0.55, 0.45, 0x12161f, 0.7, 0.2);
-  windowFrameBot.position.set(0, 0.27, -15);
+  const windowFrameBot = box(ROOM_W, 0.55, 0.45, 0x12161f, 0.7, 0.2);
+  windowFrameBot.position.set(0, 0.27, -HALF_D);
   roomGroup.add(windowFrameBot);
-  for (let x = -18; x <= 18; x += 9) {
-    const mullion = box(0.3, 9.1, 0.3, 0x151923, 0.55, 0.4);
-    mullion.position.set(x, 5, -15);
+  for (let x = -36; x <= 36; x += 9) {
+    const mullion = box(0.3, WALL_H - 1.0, 0.3, 0x151923, 0.55, 0.4);
+    mullion.position.set(x, WALL_H / 2, -HALF_D);
     roomGroup.add(mullion);
   }
 
   const city = new THREE.Mesh(
-    new THREE.PlaneGeometry(43, 9.1),
+    new THREE.PlaneGeometry(ROOM_W - 1, WALL_H - 1.0),
     new THREE.MeshBasicMaterial({ map: cityTex })
   );
-  city.position.set(0, 5.05, -15.2);
+  city.position.set(0, WALL_H / 2, -HALF_D - 0.2);
   roomGroup.add(city);
 
   const glass = new THREE.Mesh(
-    new THREE.PlaneGeometry(43, 9.1),
+    new THREE.PlaneGeometry(ROOM_W - 1, WALL_H - 1.0),
     new THREE.MeshPhysicalMaterial({
       color: 0x8db7ff, transparent: true, opacity: 0.09, roughness: 0.08, metalness: 0.15,
       clearcoat: 1, transmission: 0.1
     })
   );
-  glass.position.set(0, 5.05, -15.01);
+  glass.position.set(0, WALL_H / 2, -HALF_D + 0.01);
   roomGroup.add(glass);
 
   // ceiling strips
-  for (let i = -16; i <= 16; i += 8) {
-    const strip = box(5.5, 0.08, 0.2, 0xe8b96a, 0.1, 0.5);
-    strip.position.set(i, 10.02, -4);
+  for (let i = -36; i <= 36; i += 9) {
+    const strip = box(6.5, 0.08, 0.2, 0xe8b96a, 0.1, 0.5);
+    strip.position.set(i, WALL_H - 0.45, -9);
     vibeStripMaterials.push(strip.material);
     roomGroup.add(strip);
-    const strip2 = box(5.5, 0.08, 0.2, 0x6a78ff, 0.1, 0.5);
-    strip2.position.set(i, 10.02, 6);
+    const strip2 = box(6.5, 0.08, 0.2, 0x6a78ff, 0.1, 0.5);
+    strip2.position.set(i, WALL_H - 0.45, 9);
     vibeStripMaterials.push(strip2.material);
     roomGroup.add(strip2);
+  }
+
+  // duplex loft and overlook
+  const loftMat = new THREE.MeshStandardMaterial({ map: marbleTex, color: 0xffffff, roughness: 0.2, metalness: 0.34 });
+  floorMaterials.push(loftMat);
+  const loftFloor = new THREE.Mesh(new THREE.BoxGeometry(25, 0.36, 42), loftMat);
+  loftFloor.position.set(30, LOFT_H, -3.5);
+  loftFloor.receiveShadow = true;
+  roomGroup.add(loftFloor);
+
+  const loftFascia = box(25.4, 0.34, 0.16, 0xd3a24f, 0.22, 0.76);
+  loftFascia.position.set(30, LOFT_H - 0.16, 17.65);
+  vibeStripMaterials.push(loftFascia.material);
+  roomGroup.add(loftFascia);
+
+  const loftBackPanelMat = new THREE.MeshStandardMaterial({ map: wallTex, color: 0xf2ebe0, roughness: 0.74, metalness: 0.08 });
+  wallMaterials.push(loftBackPanelMat);
+  const loftFeatureWall = new THREE.Mesh(new THREE.BoxGeometry(24, 6.2, 0.22), loftBackPanelMat);
+  loftFeatureWall.position.set(30, LOFT_H + 3.1, -24.4);
+  roomGroup.add(loftFeatureWall);
+
+  const railMat = new THREE.MeshStandardMaterial({ color: 0xbdd8ff, transparent: true, opacity: 0.28, roughness: 0.08, metalness: 0.12 });
+  for (let z = -21; z <= 14; z += 4.5) {
+    const glassPanel = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.15, 3.2), railMat);
+    glassPanel.position.set(17.6, LOFT_H + 0.75, z);
+    glassPanel.receiveShadow = true;
+    roomGroup.add(glassPanel);
+  }
+  const railTop = box(0.16, 0.12, 38.5, 0xd3a24f, 0.2, 0.82);
+  railTop.position.set(17.5, LOFT_H + 1.42, -2.8);
+  vibeStripMaterials.push(railTop.material);
+  roomGroup.add(railTop);
+  for (let z = -21.5; z <= 16.5; z += 4.0) {
+    const post = cyl(0.055, 0.075, 1.45, 0x161a22, 8, 0.32, 0.75);
+    post.position.set(17.45, LOFT_H + 0.72, z);
+    roomGroup.add(post);
+  }
+
+  const stairGroup = new THREE.Group();
+  stairGroup.position.set(34, 0, 2.6);
+  roomGroup.add(stairGroup);
+  const ramp = new THREE.Mesh(
+    new THREE.BoxGeometry(8.2, 0.18, 15.0),
+    new THREE.MeshStandardMaterial({ color: 0x151922, roughness: 0.34, metalness: 0.52 })
+  );
+  ramp.position.set(0, LOFT_H / 2, 7.2);
+  ramp.rotation.x = -Math.atan(LOFT_H / 14.4);
+  ramp.receiveShadow = true;
+  stairGroup.add(ramp);
+  for (let i = 0; i < 16; i++) {
+    const step = box(8.4, 0.12, 0.75, 0x2b3039, 0.3, 0.54);
+    step.position.set(0, 0.22 + i * (LOFT_H / 16), 0.45 + i * 0.9);
+    stairGroup.add(step);
+    const lip = box(8.3, 0.035, 0.06, 0xe8b96a, 0.16, 0.72);
+    lip.position.set(0, step.position.y + 0.08, step.position.z + 0.33);
+    vibeGlowMaterials.push(lip.material);
+    stairGroup.add(lip);
+  }
+  for (const x of [-4.4, 4.4]) {
+    const stairRail = cyl(0.045, 0.06, 15.8, 0xd3a24f, 8, 0.2, 0.82);
+    stairRail.rotation.x = Math.PI / 2 - Math.atan(LOFT_H / 14.4);
+    stairRail.position.set(x, LOFT_H / 2 + 1.05, 7.2);
+    vibeStripMaterials.push(stairRail.material);
+    stairGroup.add(stairRail);
+  }
+  const underStairGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.8, 8.0),
+    new THREE.MeshBasicMaterial({ color: 0xffb45f, transparent: true, opacity: 0.18 })
+  );
+  underStairGlow.rotation.x = -Math.PI / 2;
+  underStairGlow.position.set(34, 0.045, 7.8);
+  roomGroup.add(underStairGlow);
+
+  for (const x of [-20, 0, 20]) {
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(2.0, 0.055, 8, 42),
+      new THREE.MeshStandardMaterial({ color: 0xe8b96a, emissive: 0x4a2400, emissiveIntensity: 0.55, roughness: 0.2, metalness: 0.7 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(x, WALL_H - 1.25, -2);
+    ring.castShadow = false;
+    vibeGlowMaterials.push(ring.material);
+    roomGroup.add(ring);
   }
 
   // center sculpture
@@ -891,33 +983,43 @@ function buildCustomRoom() {
 
   // media wall
   mediaFrameMat = new THREE.MeshStandardMaterial({ color: 0x2b313a, roughness: 0.16, metalness: 0.82 });
-  const mediaFrame = new THREE.Mesh(new THREE.BoxGeometry(10.5, 5.8, 0.24), mediaFrameMat);
+  const mediaFrame = new THREE.Mesh(new THREE.BoxGeometry(15.4, 8.4, 0.24), mediaFrameMat);
   mediaFrame.castShadow = true; mediaFrame.receiveShadow = true;
-  mediaFrame.position.set(0.0, 4.4, 14.6);
+  mediaFrame.position.set(0.0, 6.0, 29.35);
   roomGroup.add(mediaFrame);
-  const mediaHalo = roundedBox(11.25, 6.45, 0.18, 0x111820, 0.22, 0.78);
-  mediaHalo.position.set(0.0, 4.4, 14.72);
+  const mediaHalo = roundedBox(16.4, 9.25, 0.18, 0x111820, 0.22, 0.78);
+  mediaHalo.position.set(0.0, 6.0, 29.55);
   roomGroup.add(mediaHalo);
   for (const x of [-5.85, 5.85]) {
-    const speaker = roundedBox(0.42, 4.8, 0.3, 0x111318, 0.44, 0.55);
-    speaker.position.set(x, 4.35, 14.42);
+    const speaker = roundedBox(0.5, 6.8, 0.3, 0x111318, 0.44, 0.55);
+    speaker.position.set(x * 1.35, 5.95, 29.1);
     roomGroup.add(speaker);
-    for (let y = 2.6; y <= 5.8; y += 1.1) {
+    for (let y = 3.2; y <= 8.3; y += 1.25) {
       const cone = cyl(0.14, 0.18, 0.05, 0x050608, 12, 0.54, 0.22);
       cone.rotation.x = Math.PI / 2;
-      cone.position.set(x, y, 14.24);
+      cone.position.set(x * 1.35, y, 28.92);
       roomGroup.add(cone);
     }
   }
 
   buildMediaScreenTexture();
+  mediaScreenHalfW = 6.9;
+  mediaScreenHalfH = 3.65;
   mediaScreenMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(9.6, 5.1),
+    new THREE.PlaneGeometry(mediaScreenHalfW * 2, mediaScreenHalfH * 2),
     new THREE.MeshBasicMaterial({ map: mediaScreenTex })
   );
-  mediaScreenMesh.position.set(0.0, 4.4, 14.46);
+  mediaScreenMesh.position.set(0.0, 6.0, 29.05);
   mediaScreenMesh.rotation.y = Math.PI;
   roomGroup.add(mediaScreenMesh);
+
+  const vibeRoomCrest = new THREE.Mesh(
+    new THREE.PlaneGeometry(10.5, 1.25),
+    new THREE.MeshBasicMaterial({ map: makeLabelTexture('VIBE ROOM', 'DUPLEX LOUNGE', '#e8b96a', '#090a10') })
+  );
+  vibeRoomCrest.position.set(0, 11.15, 29.02);
+  vibeRoomCrest.rotation.y = Math.PI;
+  roomGroup.add(vibeRoomCrest);
 
   const hostConsole = new THREE.Group();
   hostConsole.position.set(-3.0, 0, -10.2);
