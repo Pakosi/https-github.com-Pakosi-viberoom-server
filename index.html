@@ -153,10 +153,12 @@
     <button id="host-close">✕</button>
     <h3>◆ HOST CONSOLE ◆</h3>
     <div class="host-grid">
+      <button class="host-accent" data-vibe="luxe">LUXE</button>
       <button class="host-accent" data-vibe="chill">CHILL</button>
-      <button class="host-accent" data-vibe="war">WAR ROOM</button>
-      <button class="host-accent" data-vibe="after">AFTER HOURS</button>
-      <button class="host-accent" data-vibe="game">GAME NIGHT</button>
+      <button class="host-accent" data-vibe="after">PARTY</button>
+      <button class="host-accent" data-vibe="clean">CLEAN</button>
+      <button class="host-accent" data-vibe="dark">DARK</button>
+      <button class="host-accent" data-vibe="game">GAME</button>
     </div>
     <input id="host-media-url" placeholder="Paste YouTube URL or video ID">
     <div class="host-row">
@@ -169,6 +171,7 @@
       <input id="host-media-seek" type="number" min="0" step="5" placeholder="SEC">
       <button id="host-seek-media" style="flex:1;">SEEK</button>
     </div>
+    <button id="host-search-youtube" style="width:100%; margin-bottom:8px;">SEARCH YOUTUBE</button>
     <div class="host-row">
       <button id="host-money-rain" style="flex:1;">MONEY RAIN</button>
       <button id="host-pulse" style="flex:1;">PULSE</button>
@@ -179,8 +182,11 @@
   <div id="tv-overlay"><iframe id="tv-iframe" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
   <button id="tv-audio-join">V / ♪ TV AUDIO</button>
   <div id="media-controls">
-    <button id="media-mute">MUTE</button>
-    <input id="media-volume" type="range" min="0" max="100" value="70" aria-label="TV volume">
+    <button id="media-volume-toggle">VOL</button>
+    <div id="media-volume-popover">
+      <button id="media-mute">MUTE</button>
+      <input id="media-volume" type="range" min="0" max="100" value="70" aria-label="TV volume">
+    </div>
   </div>
 
   <div id="mobile-ctrls">

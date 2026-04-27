@@ -420,13 +420,26 @@ document.getElementById('host-load-media').addEventListener('click', () => {
   const raw = document.getElementById('host-media-url').value.trim();
   const videoId = ytIdFrom(raw);
   if (!videoId) {
-    document.getElementById('host-info').textContent = 'Invalid YouTube URL or video ID.';
+    openYouTubeSearch(raw);
     return;
   }
   setSharedMediaState(makeMediaState(videoId, true, 0));
   startTVPlayback(true);
   document.getElementById('host-info').textContent = 'Wall TV synced.';
   drawMediaScreen();
+});
+function openYouTubeSearch(raw) {
+  const q = String(raw || '').trim();
+  if (!q) {
+    document.getElementById('host-info').textContent = 'Paste a YouTube URL/video ID or type a search.';
+    return;
+  }
+  window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer');
+  document.getElementById('host-info').textContent = 'Search opened. Paste a result URL or video ID here, then LOAD + PLAY.';
+}
+document.getElementById('host-search-youtube').addEventListener('click', () => {
+  if (!isHostUser()) return;
+  openYouTubeSearch(document.getElementById('host-media-url').value);
 });
 document.getElementById('host-play-media').addEventListener('click', () => {
   if (!isHostUser() || !hostState.media.videoId) return;

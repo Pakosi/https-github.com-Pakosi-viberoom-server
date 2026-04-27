@@ -43,6 +43,7 @@ let tvAudioJoin = null;
 let mediaControls = null;
 let mediaVolumeEl = null;
 let mediaMuteBtn = null;
+let mediaVolumeToggle = null;
 let tvIframeVideoId = '';
 let tvLastRect = '';
 let tvLocalBase = 0;
@@ -119,9 +120,12 @@ function ensureTVDom() {
   mediaControls = document.getElementById('media-controls');
   mediaVolumeEl = document.getElementById('media-volume');
   mediaMuteBtn = document.getElementById('media-mute');
-  if (!tvOverlay || !tvIframe || !tvAudioJoin || !mediaControls || !mediaVolumeEl || !mediaMuteBtn) return;
+  mediaVolumeToggle = document.getElementById('media-volume-toggle');
+  if (!tvOverlay || !tvIframe || !tvAudioJoin || !mediaControls || !mediaVolumeEl || !mediaMuteBtn || !mediaVolumeToggle) return;
   mediaVolumeEl.value = String(mediaVolume);
-  mediaMuteBtn.textContent = mediaMuted ? 'UNMUTE' : 'MUTE';
+  mediaVolumeToggle.addEventListener('click', () => {
+    mediaControls.classList.toggle('open');
+  });
   mediaVolumeEl.addEventListener('input', () => {
     mediaVolume = Math.max(0, Math.min(100, +mediaVolumeEl.value || 0));
     mediaMuted = mediaVolume <= 0 ? true : false;
@@ -135,6 +139,7 @@ function ensureTVDom() {
     applyLocalMediaVolume();
   });
   tvCreated = true;
+  applyLocalMediaVolume();
 }
 function mediaNow(media=hostState.media, now=Date.now()) {
   if (!media || !media.videoId) return 0;
@@ -162,7 +167,7 @@ function makeMediaState(videoId, playing, startAt=0) {
 }
 function ytCommand(func, args=[]) {
   if (!tvIframe || !tvIframe.contentWindow || !tvIframe.src) return;
-  tvIframe.contentWindow.postMessage(JSON.stringify({ event:'command', func, args }), 'https://www.youtube.com');
+  tvIframe.contentWindow.postMessage(JSON.stringify({ event:'command', func, args }), '*');
 }
 function setTVLocalClock(seconds) {
   tvLocalBase = Math.max(0, +seconds || 0);
@@ -176,9 +181,15 @@ function applyLocalMediaVolume() {
   if (!tvCreated) return;
   mediaMuted = mediaMuted || mediaVolume <= 0;
   mediaMuteBtn.textContent = mediaMuted ? 'UNMUTE' : 'MUTE';
+  mediaVolumeToggle.textContent = mediaMuted ? 'MUTED' : `VOL ${mediaVolume}`;
   if (mediaMuted) ytCommand('mute');
   else ytCommand('unMute');
   ytCommand('setVolume', [mediaMuted ? 0 : mediaVolume]);
+}
+function queueLocalMediaVolume() {
+  applyLocalMediaVolume();
+  setTimeout(applyLocalMediaVolume, 400);
+  setTimeout(applyLocalMediaVolume, 1200);
 }
 function buildYouTubeSrc(videoId, start, withAudio) {
   const muteFlag = (withAudio && !mediaMuted && mediaVolume > 0) ? 0 : 1;
@@ -282,9 +293,10 @@ function startTVPlayback(withAudio=true) {
     tvIframe.src = buildYouTubeSrc(hostState.media.videoId, elapsed, withAudio);
     tvIframeVideoId = hostState.media.videoId;
     tvStartedAtWall = Date.now();
+    tvIframe.onload = queueLocalMediaVolume;
     setTimeout(() => {
       syncTVToRoom(true);
-      applyLocalMediaVolume();
+      queueLocalMediaVolume();
     }, 900);
   } else {
     syncTVToRoom(true);
@@ -308,7 +320,7 @@ function syncTVToRoom(force=false) {
     ytCommand('pauseVideo');
     setTVLocalClock(target);
   }
-  applyLocalMediaVolume();
+  queueLocalMediaVolume();
 }
 function maintainMediaSync(t) {
   if (!tvCreated || !hostState.media.videoId || !tvIframe.src) return;
@@ -335,71 +347,73 @@ function isHostUser() {
 }
 function applyVibe(mode) {
   activeVibe = mode;
-  let wallStyle = 'brick_chill';
-  let wallColor = 0xf2ebe0;
-  let floorBase = '#0b0d12', veinA = 'rgba(240,240,240,0.08)', veinB = 'rgba(185,155,100,0.07)', grid = 'rgba(255,255,255,0.05)', gloss='rgba(255,255,255,0.025)';
-  let bg = 0x0a0d14, fog = MOBILE ? 0.0022 : 0.0035, expo = MOBILE ? 1.75 : 1.95;
-  let keyColor = 0xfff4d8, purple = 0x5e47ff, gold = 0xe8b96a, stripA = 0xe8b96a, stripB = 0x6a78ff;
-  let sculptureEmissive = 0x4a2400, mediaFrameColor = 0x2b313a, floorTint = 0xffffff;
+  const vibes = {
+    chill: {
+      wallStyle:'brick_chill', wallColor:0xeaf4ff, floorBase:'#eef6ff', veinA:'rgba(80,150,220,0.10)', veinB:'rgba(255,255,255,0.18)', grid:'rgba(80,120,180,0.07)', gloss:'rgba(255,255,255,0.04)',
+      bg:0x0b1522, fog:MOBILE ? 0.0020 : 0.0031, expo:MOBILE ? 1.86 : 2.05, keyColor:0xeaf6ff, purple:0x76bfff, gold:0xcfe8ff, stripA:0xbfe8ff, stripB:0x7bbcff, sculptureEmissive:0x16446a, mediaFrameColor:0x26384a, floorTint:0xf4fbff
+    },
+    war: {
+      wallStyle:'concrete_war', wallColor:0xd9dde2, floorBase:'#1a1d21', veinA:'rgba(240,240,240,0.05)', veinB:'rgba(120,255,160,0.06)', grid:'rgba(255,255,255,0.025)', gloss:'rgba(255,255,255,0.012)',
+      bg:0x0b1117, fog:MOBILE ? 0.0028 : 0.0041, expo:MOBILE ? 1.64 : 1.82, keyColor:0xe7f4d6, purple:0x2cb35f, gold:0xa9ff87, stripA:0xb7ff80, stripB:0x4cff9d, sculptureEmissive:0x123d12, mediaFrameColor:0x2b3a31, floorTint:0xe7f0ea
+    },
+    after: {
+      wallStyle:'brick_after', wallColor:0xf3e0ff, floorBase:'#16081e', veinA:'rgba(255,150,255,0.12)', veinB:'rgba(100,190,255,0.12)', grid:'rgba(255,255,255,0.025)', gloss:'rgba(255,80,220,0.035)',
+      bg:0x180910, fog:MOBILE ? 0.0017 : 0.0028, expo:MOBILE ? 1.92 : 2.14, keyColor:0xffe9da, purple:0xb84cff, gold:0xff7b5d, stripA:0xff4fd8, stripB:0x7f5cff, sculptureEmissive:0x5a1430, mediaFrameColor:0x3a2330, floorTint:0xfff2f8
+    },
+    game: {
+      wallStyle:'panel_game', wallColor:0xe8f0ff, floorBase:'#0a1018', veinA:'rgba(120,220,255,0.10)', veinB:'rgba(255,220,80,0.10)', grid:'rgba(255,255,255,0.03)', gloss:'rgba(255,255,255,0.018)',
+      bg:0x0b1118, fog:MOBILE ? 0.0019 : 0.0030, expo:MOBILE ? 1.88 : 2.1, keyColor:0xf8f2df, purple:0x2f78ff, gold:0xffcc42, stripA:0xffcf56, stripB:0x46a2ff, sculptureEmissive:0x4d2b00, mediaFrameColor:0x203247, floorTint:0xf7fbff
+    },
+    luxe: {
+      wallStyle:'brick_chill', wallColor:0xf4e5c0, floorBase:'#030405', veinA:'rgba(255,255,255,0.08)', veinB:'rgba(232,185,106,0.18)', grid:'rgba(232,185,106,0.06)', gloss:'rgba(232,185,106,0.035)',
+      bg:0x07080b, fog:MOBILE ? 0.0018 : 0.0028, expo:MOBILE ? 1.78 : 2.0, keyColor:0xfff1c8, purple:0x5541c9, gold:0xffc96b, stripA:0xffd27a, stripB:0xffffff, sculptureEmissive:0x6a3b00, mediaFrameColor:0x17130c, floorTint:0xfff5dc
+    },
+    clean: {
+      wallStyle:'panel_game', wallColor:0xffffff, floorBase:'#f7f8fb', veinA:'rgba(130,150,170,0.08)', veinB:'rgba(255,255,255,0.28)', grid:'rgba(120,140,160,0.08)', gloss:'rgba(255,255,255,0.04)',
+      bg:0xdce8f3, fog:MOBILE ? 0.0012 : 0.0019, expo:MOBILE ? 2.02 : 2.22, keyColor:0xffffff, purple:0xa8d8ff, gold:0xf1dca8, stripA:0xe8f4ff, stripB:0xb7d7ff, sculptureEmissive:0x6b7d8f, mediaFrameColor:0xe9edf2, floorTint:0xffffff
+    },
+    dark: {
+      wallStyle:'brick_after', wallColor:0x3b1418, floorBase:'#040303', veinA:'rgba(255,40,60,0.11)', veinB:'rgba(80,0,0,0.18)', grid:'rgba(255,255,255,0.012)', gloss:'rgba(255,0,40,0.025)',
+      bg:0x050304, fog:MOBILE ? 0.0027 : 0.0040, expo:MOBILE ? 1.52 : 1.72, keyColor:0xffd1c8, purple:0x9a111e, gold:0xff384d, stripA:0xff263d, stripB:0x5c0009, sculptureEmissive:0x5f0008, mediaFrameColor:0x1b080b, floorTint:0xffecec
+    }
+  };
+  const vibe = vibes[mode] || vibes.chill;
 
-  if (mode === 'war') {
-    wallStyle = 'concrete_war';
-    wallColor = 0xd9dde2;
-    floorBase = '#1a1d21'; veinA = 'rgba(240,240,240,0.05)'; veinB = 'rgba(120,255,160,0.06)'; grid = 'rgba(255,255,255,0.025)'; gloss='rgba(255,255,255,0.012)';
-    bg = 0x0b1117; fog = MOBILE ? 0.0028 : 0.0041; expo = MOBILE ? 1.64 : 1.82;
-    keyColor = 0xe7f4d6; purple = 0x2cb35f; gold = 0xa9ff87; stripA = 0xb7ff80; stripB = 0x4cff9d; sculptureEmissive = 0x123d12;
-    mediaFrameColor = 0x2b3a31; floorTint = 0xe7f0ea;
-  } else if (mode === 'after') {
-    wallStyle = 'brick_after';
-    wallColor = 0xf3e0e7;
-    floorBase = '#140c12'; veinA = 'rgba(255,220,220,0.07)'; veinB = 'rgba(180,90,255,0.10)'; grid = 'rgba(255,255,255,0.02)'; gloss='rgba(255,160,255,0.02)';
-    bg = 0x180910; fog = MOBILE ? 0.0017 : 0.0028; expo = MOBILE ? 1.92 : 2.14;
-    keyColor = 0xffe9da; purple = 0xb84cff; gold = 0xff7b5d; stripA = 0xff9966; stripB = 0xa668ff; sculptureEmissive = 0x5a1430;
-    mediaFrameColor = 0x3a2330; floorTint = 0xfff2f8;
-  } else if (mode === 'game') {
-    wallStyle = 'panel_game';
-    wallColor = 0xe8f0ff;
-    floorBase = '#0a1018'; veinA = 'rgba(120,220,255,0.10)'; veinB = 'rgba(255,220,80,0.10)'; grid = 'rgba(255,255,255,0.03)'; gloss='rgba(255,255,255,0.018)';
-    bg = 0x0b1118; fog = MOBILE ? 0.0019 : 0.0030; expo = MOBILE ? 1.88 : 2.1;
-    keyColor = 0xf8f2df; purple = 0x2f78ff; gold = 0xffcc42; stripA = 0xffcf56; stripB = 0x46a2ff; sculptureEmissive = 0x4d2b00;
-    mediaFrameColor = 0x203247; floorTint = 0xf7fbff;
-  }
+  currentBaseFog = vibe.fog;
+  scene.background.setHex(vibe.bg);
+  scene.fog.density = getQualityFog(vibe.fog);
+  renderer.toneMappingExposure = getQualityExposure(vibe.expo);
+  key.color.setHex(vibe.keyColor);
+  purpleFill.color.setHex(vibe.purple);
+  goldFill.color.setHex(vibe.gold);
 
-  currentBaseFog = fog;
-  scene.background.setHex(bg);
-  scene.fog.density = getQualityFog(fog);
-  renderer.toneMappingExposure = getQualityExposure(expo);
-  key.color.setHex(keyColor);
-  purpleFill.color.setHex(purple);
-  goldFill.color.setHex(gold);
-
-  wallTex = makeWallTexture(wallStyle);
+  wallTex = makeWallTexture(vibe.wallStyle);
   for (const m of wallMaterials) {
     m.map = wallTex;
-    m.color.setHex(wallColor);
+    m.color.setHex(vibe.wallColor);
     m.needsUpdate = true;
   }
 
-  marbleTex = makeMarbleTexture(floorBase, veinA, veinB, grid, gloss);
+  marbleTex = makeMarbleTexture(vibe.floorBase, vibe.veinA, vibe.veinB, vibe.grid, vibe.gloss);
   for (const m of floorMaterials) {
     m.map = marbleTex;
-    m.color.setHex(floorTint);
+    m.color.setHex(vibe.floorTint);
     m.needsUpdate = true;
   }
 
   for (const m of mediaFrameMaterials) {
-    m.color.setHex(mediaFrameColor);
+    m.color.setHex(vibe.mediaFrameColor);
     m.needsUpdate = true;
   }
 
   for (let i = 0; i < vibeStripMaterials.length; i++) {
-    vibeStripMaterials[i].color.setHex(i % 2 === 0 ? stripA : stripB);
+    vibeStripMaterials[i].color.setHex(i % 2 === 0 ? vibe.stripA : vibe.stripB);
   }
   for (const m of vibeGlowMaterials) {
-    if (m.color) m.color.setHex(stripB);
+    if (m.color) m.color.setHex(vibe.stripB);
   }
   if (centerSculpture && centerSculpture.material) {
-    centerSculpture.material.emissive.setHex(sculptureEmissive);
+    centerSculpture.material.emissive.setHex(vibe.sculptureEmissive);
   }
   applyGraphicsQuality(false);
 }
