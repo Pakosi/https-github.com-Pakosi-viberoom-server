@@ -470,6 +470,22 @@ function buildCustomRoom() {
   underGlow.position.y = 0.02;
   roomGroup.add(underGlow);
 
+  const loungeRug = new THREE.Mesh(
+    new THREE.PlaneGeometry(11.5, 7.5),
+    new THREE.MeshBasicMaterial({ map: makeRugTexture('#e8b96a', '#171116'), transparent: true, opacity: 0.72 })
+  );
+  loungeRug.rotation.x = -Math.PI/2;
+  loungeRug.position.set(-11.3, 0.035, 8.1);
+  roomGroup.add(loungeRug);
+
+  const commandRug = new THREE.Mesh(
+    new THREE.PlaneGeometry(10.6, 6.2),
+    new THREE.MeshBasicMaterial({ map: makeRugTexture('#7adf9a', '#08120f'), transparent: true, opacity: 0.56 })
+  );
+  commandRug.rotation.x = -Math.PI/2;
+  commandRug.position.set(6.4, 0.036, 5.0);
+  roomGroup.add(commandRug);
+
   const ceiling = new THREE.Mesh(
     new THREE.BoxGeometry(44, 0.45, 30),
     new THREE.MeshStandardMaterial({ color: 0x070a10, roughness: 0.92, metalness: 0.04 })
@@ -499,6 +515,33 @@ function buildCustomRoom() {
   );
   backWall.position.set(0, 5, 15);
   roomGroup.add(backWall);
+
+  for (const z of [-14.72, 14.72]) {
+    const baseboard = box(43.2, 0.18, 0.12, 0xd3a24f, 0.28, 0.7);
+    baseboard.position.set(0, 0.64, z);
+    roomGroup.add(baseboard);
+  }
+  for (const x of [-21.72, 21.72]) {
+    const baseboard = box(0.12, 0.18, 29.2, 0xd3a24f, 0.28, 0.7);
+    baseboard.position.set(x, 0.64, 0);
+    roomGroup.add(baseboard);
+  }
+  for (let x = -16; x <= 16; x += 8) {
+    const panel = roundedBox(5.2, 3.2, 0.12, 0x202834, 0.58, 0.16);
+    panel.position.set(x, 4.2, 14.68);
+    roomGroup.add(panel);
+    const inset = box(4.45, 0.05, 0.14, 0xe8b96a, 0.2, 0.72);
+    inset.position.set(x, 5.72, 14.58);
+    roomGroup.add(inset);
+  }
+  for (let z = -9; z <= 9; z += 6) {
+    const leftPanel = roundedBox(0.12, 3.0, 4.0, 0x1b2230, 0.62, 0.12);
+    leftPanel.position.set(-21.68, 4.0, z);
+    roomGroup.add(leftPanel);
+    const rightPanel = leftPanel.clone();
+    rightPanel.position.x = 21.68;
+    roomGroup.add(rightPanel);
+  }
 
   // front skyline window wall
   const windowFrameTop = box(44, 0.45, 0.45, 0x12161f, 0.7, 0.2);
@@ -569,19 +612,30 @@ function buildCustomRoom() {
   registerAdminObject('lounge_zone', loungeGroup, { interactType:'lounge' });
 
   const couchColor = 0x4a342d;
-  const couchA = roundedBox(8.8, 1.1, 1.8, couchColor, 0.66, 0.08);
-  couchA.position.set(0, 0.95, -2.4);
+  const couchA = makeLuxurySofa(8.8, 1.9, couchColor);
+  couchA.position.set(0, 0.05, -2.4);
   loungeGroup.add(couchA);
-  const couchB = roundedBox(1.8, 1.1, 5.4, couchColor, 0.66, 0.08);
-  couchB.position.set(-3.6, 0.95, 0);
+  const couchB = makeLuxurySofa(5.4, 1.9, couchColor);
+  couchB.rotation.y = -Math.PI / 2;
+  couchB.position.set(-3.6, 0.05, 0);
   loungeGroup.add(couchB);
-  const couchC = roundedBox(3.6, 1.1, 1.8, couchColor, 0.66, 0.08);
-  couchC.position.set(0, 0.95, 2.4);
+  const couchC = makeLuxurySofa(3.6, 1.8, couchColor);
+  couchC.rotation.y = Math.PI;
+  couchC.position.set(0, 0.05, 2.4);
   loungeGroup.add(couchC);
 
-  const table = roundedBox(3.4, 0.42, 1.8, 0x2a2d33, 0.22, 0.7);
-  table.position.set(-0.1, 0.36, 0);
+  const table = makeDesignerTable(3.5, 1.9, 0x2a2d33, 0x7a5d43);
+  table.position.set(-0.1, 0.02, 0);
   loungeGroup.add(table);
+  const planter = cyl(0.42, 0.34, 0.55, 0x242a30, 12, 0.5, 0.34);
+  planter.position.set(3.8, 0.28, 1.7);
+  loungeGroup.add(planter);
+  for (let i = 0; i < 5; i++) {
+    const leaf = cyl(0.0, 0.13, 0.72, 0x2f8f5a, 7, 0.72, 0.04);
+    leaf.position.set(3.8 + (i - 2) * 0.12, 0.86, 1.7 + Math.sin(i) * 0.12);
+    leaf.rotation.z = (i - 2) * 0.22;
+    loungeGroup.add(leaf);
+  }
 
   // bar zone
   const barGroup = new THREE.Group();
@@ -592,10 +646,21 @@ function buildCustomRoom() {
   const barCounter = roundedBox(10.4, 1.15, 2.2, 0x22262d, 0.18, 0.82);
   barCounter.position.set(0, 0.95, 0);
   barGroup.add(barCounter);
+  for (let z = -0.82; z <= 0.82; z += 0.41) {
+    const rib = box(10.15, 0.04, 0.035, 0xe8b96a, 0.18, 0.72);
+    rib.position.set(0, 1.28, z);
+    barGroup.add(rib);
+  }
 
   const barTop = box(10.8, 0.14, 2.4, 0x7a5d43, 0.16, 0.38);
+  barTop.material.map = makeWoodTexture('#6b4b31', '#e8b96a');
+  barTop.material.needsUpdate = true;
   barTop.position.set(0, 1.56, 0);
   barGroup.add(barTop);
+  const footRail = cyl(0.04, 0.04, 10.2, 0xd3a24f, 10, 0.24, 0.78);
+  footRail.rotation.z = Math.PI / 2;
+  footRail.position.set(0, 0.58, 1.25);
+  barGroup.add(footRail);
 
   const shelfWall = box(0.42, 6.5, 10.4, 0x171d26, 0.7, 0.12);
   shelfWall.position.set(-5.95, 3.25, 0);
@@ -605,6 +670,10 @@ function buildCustomRoom() {
     const shelf = box(0.35, 0.08, 9.5, 0x6d553d, 0.2, 0.55);
     shelf.position.set(-5.55, y, 0);
     barGroup.add(shelf);
+    const shelfGlow = box(0.04, 0.04, 8.8, 0xe8b96a, 0.08, 0.7);
+    shelfGlow.position.set(-5.32, y + 0.12, 0);
+    vibeGlowMaterials.push(shelfGlow.material);
+    barGroup.add(shelfGlow);
   }
 
   const bottleColors = [
@@ -635,13 +704,28 @@ function buildCustomRoom() {
   const warBase = roundedBox(8.5, 0.85, 4.5, 0x252a32, 0.16, 0.84);
   warBase.position.set(0, 1.1, 0);
   warGroup.add(warBase);
+  const warTopLip = roundedBox(8.9, 0.18, 4.9, 0x111820, 0.22, 0.86);
+  warTopLip.position.set(0, 1.62, 0);
+  warGroup.add(warTopLip);
+  for (const x of [-3.7, 3.7]) {
+    for (const z of [-1.75, 1.75]) {
+      const leg = cyl(0.12, 0.18, 1.0, 0x10161d, 10, 0.32, 0.78);
+      leg.position.set(x, 0.5, z);
+      warGroup.add(leg);
+    }
+  }
 
   const tableDisplayTex = makeLabelTexture('WAR TABLE', 'TRACK THE ROOM', '#7adf9a', '#07101a');
   const dispMat = new THREE.MeshBasicMaterial({ map: tableDisplayTex });
   tableTopDisplay = new THREE.Mesh(new THREE.PlaneGeometry(6.8, 3.4), dispMat);
   tableTopDisplay.rotation.x = -Math.PI/2;
-  tableTopDisplay.position.set(0, 1.58, 0);
+  tableTopDisplay.position.set(0, 1.73, 0);
   warGroup.add(tableTopDisplay);
+  for (let i = 0; i < 5; i++) {
+    const puck = cyl(0.12, 0.12, 0.05, i % 2 ? 0x7adf9a : 0xe8b96a, 10, 0.24, 0.45);
+    puck.position.set(-2.4 + i * 1.2, 1.78, Math.sin(i) * 1.0);
+    warGroup.add(puck);
+  }
 
   tableInteractAnchor.set(6.5, 0, 5.1);
 
@@ -649,6 +733,9 @@ function buildCustomRoom() {
   const presentationFrame = box(9.8, 5.6, 0.25, 0x12151b, 0.28, 0.72);
   presentationFrame.position.set(12.5, 4.2, -13.8);
   roomGroup.add(presentationFrame);
+  const presentationLip = roundedBox(10.35, 6.05, 0.16, 0x2a3039, 0.28, 0.78);
+  presentationLip.position.set(12.5, 4.2, -13.92);
+  roomGroup.add(presentationLip);
   boardWallMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(8.9, 4.8),
     new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -667,6 +754,20 @@ function buildCustomRoom() {
   mediaFrame.castShadow = true; mediaFrame.receiveShadow = true;
   mediaFrame.position.set(0.0, 4.4, 14.6);
   roomGroup.add(mediaFrame);
+  const mediaHalo = roundedBox(11.25, 6.45, 0.18, 0x111820, 0.22, 0.78);
+  mediaHalo.position.set(0.0, 4.4, 14.72);
+  roomGroup.add(mediaHalo);
+  for (const x of [-5.85, 5.85]) {
+    const speaker = roundedBox(0.42, 4.8, 0.3, 0x111318, 0.44, 0.55);
+    speaker.position.set(x, 4.35, 14.42);
+    roomGroup.add(speaker);
+    for (let y = 2.6; y <= 5.8; y += 1.1) {
+      const cone = cyl(0.14, 0.18, 0.05, 0x050608, 12, 0.54, 0.22);
+      cone.rotation.x = Math.PI / 2;
+      cone.position.set(x, y, 14.24);
+      roomGroup.add(cone);
+    }
+  }
 
   buildMediaScreenTexture();
   mediaScreenMesh = new THREE.Mesh(
@@ -684,6 +785,9 @@ function buildCustomRoom() {
   const consolePedestal = roundedBox(2.2, 1.15, 1.4, 0x2b313a, 0.2, 0.78);
   consolePedestal.position.set(0, 0.7, 0);
   hostConsole.add(consolePedestal);
+  const consoleWing = roundedBox(3.0, 0.32, 1.2, 0x151b24, 0.24, 0.7);
+  consoleWing.position.set(0, 1.25, 0.02);
+  hostConsole.add(consoleWing);
   const consoleScreen = new THREE.Mesh(
     new THREE.PlaneGeometry(1.8, 1.0),
     new THREE.MeshBasicMaterial({ map: makeLabelTexture('HOST', 'ROOM CONTROL', '#e8b96a', '#08111b') })
@@ -701,6 +805,15 @@ function buildCustomRoom() {
   const fifaFrame = box(7.6, 4.3, 0.24, 0x2a3039, 0.18, 0.88);
   fifaFrame.position.set(0, 4.0, 0);
   fifaGroup.add(fifaFrame);
+  const fifaStand = roundedBox(6.2, 0.32, 1.1, 0x151b24, 0.28, 0.72);
+  fifaStand.position.set(0, 1.12, 0.18);
+  fifaGroup.add(fifaStand);
+  for (const x of [-3.9, 3.9]) {
+    const sideLight = box(0.08, 4.4, 0.12, 0x6d78ff, 0.08, 0.78);
+    sideLight.position.set(x, 4.0, 0.22);
+    vibeGlowMaterials.push(sideLight.material);
+    fifaGroup.add(sideLight);
+  }
   fifaScreenMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(6.8, 3.75),
     new THREE.MeshBasicMaterial({ map: fifaScreenTex })
@@ -708,7 +821,7 @@ function buildCustomRoom() {
   fifaScreenMesh.position.set(0, 4.0, 0.21);
   fifaGroup.add(fifaScreenMesh);
 
-  const consoleBench = roundedBox(4.5, 0.55, 1.4, 0x1f242c, 0.18, 0.72);
+  const consoleBench = makeDesignerTable(4.5, 1.4, 0x1f242c, 0x2f3540);
   consoleBench.position.set(0, 0.42, 0.2);
   fifaGroup.add(consoleBench);
 
@@ -728,9 +841,29 @@ function buildCustomRoom() {
   roomGroup.add(snakeGroup);
   registerAdminObject('snake_zone', snakeGroup, { interactType:'arcade' });
 
-  const snakeFrame = box(4.8, 5.8, 1.6, 0x2a2a2f, 0.28, 0.62);
+  const snakeFrame = roundedBox(4.8, 5.8, 1.6, 0x2a2a2f, 0.28, 0.62);
   snakeFrame.position.set(0, 3.0, 0);
   snakeGroup.add(snakeFrame);
+  const snakeSideL = box(0.18, 5.7, 1.85, 0x17191f, 0.36, 0.62);
+  snakeSideL.position.set(-2.52, 3.0, 0);
+  snakeGroup.add(snakeSideL);
+  const snakeSideR = snakeSideL.clone();
+  snakeSideR.position.x = 2.52;
+  snakeGroup.add(snakeSideR);
+  const controlDeck = roundedBox(4.2, 0.36, 1.25, 0x111318, 0.3, 0.68);
+  controlDeck.position.set(0, 1.62, 0.9);
+  controlDeck.rotation.x = -0.18;
+  snakeGroup.add(controlDeck);
+  const joystick = cyl(0.06, 0.08, 0.42, 0xe8b96a, 10, 0.24, 0.72);
+  joystick.position.set(-1.1, 1.93, 1.22);
+  joystick.rotation.x = -0.18;
+  snakeGroup.add(joystick);
+  for (let i = 0; i < 3; i++) {
+    const btn = cyl(0.12, 0.12, 0.06, i === 0 ? 0xff6a5c : (i === 1 ? 0x7adf9a : 0x6d78ff), 12, 0.3, 0.35);
+    btn.rotation.x = Math.PI / 2;
+    btn.position.set(0.55 + i * 0.42, 1.86, 1.3);
+    snakeGroup.add(btn);
+  }
 
   snakeWallMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(3.5, 3.5),
@@ -767,6 +900,9 @@ function buildCustomRoom() {
   const hoopBoard = box(1.9, 1.2, 0.12, 0xf2f2f2, 0.22, 0.05);
   hoopBoard.position.set(3.35, 5.6, 0);
   basketballGroup.add(hoopBoard);
+  const hoopTarget = box(0.75, 0.42, 0.04, 0xff6a2f, 0.28, 0.18);
+  hoopTarget.position.set(3.27, 5.55, 0);
+  basketballGroup.add(hoopTarget);
 
   const hoopRing = new THREE.Mesh(
     new THREE.TorusGeometry(0.48, 0.05, 12, 40),
@@ -793,6 +929,9 @@ function buildCustomRoom() {
   const safeBody = roundedBox(2.2, 2.2, 2.1, 0x2a2f36, 0.18, 0.82);
   safeBody.position.set(0, 1.15, 0);
   moneyGroup.add(safeBody);
+  const safeTrim = roundedBox(2.42, 2.42, 0.16, 0xd2b16a, 0.22, 0.82);
+  safeTrim.position.set(1.0, 1.15, 0);
+  moneyGroup.add(safeTrim);
 
   safeDoor = box(0.18, 1.6, 1.4, 0x353b43, 0.2, 0.88);
   safeDoor.position.set(1.07, 1.15, 0);
@@ -831,8 +970,9 @@ function buildCustomRoom() {
   }
 
   // seating near gaming
-  const gameSofa = roundedBox(4.4, 1.0, 1.5, 0x1d2027, 0.72, 0.06);
-  gameSofa.position.set(12.6, 1.0, -0.8);
+  const gameSofa = makeLuxurySofa(4.4, 1.55, 0x1d2027, 0x6d78ff);
+  gameSofa.position.set(12.6, 0.05, -0.8);
+  gameSofa.rotation.y = 0.12;
   roomGroup.add(gameSofa);
 
   // door wall fix
@@ -842,11 +982,15 @@ function buildCustomRoom() {
   const fakeDoor = box(1.4, 3.2, 0.12, 0x3a2b1d, 0.84, 0.08);
   fakeDoor.position.set(-19.6, 1.8, 14.84);
   roomGroup.add(fakeDoor);
+  const doorHandle = cyl(0.06, 0.06, 0.12, 0xd3a24f, 10, 0.25, 0.8);
+  doorHandle.rotation.x = Math.PI / 2;
+  doorHandle.position.set(-19.05, 1.82, 14.72);
+  roomGroup.add(doorHandle);
 
   // stools
   for (let i = 0; i < 4; i++) {
-    const stool = roundedBox(0.75, 0.72, 0.75, 0x1f1f23, 0.4, 0.5);
-    stool.position.set(-13.3 + i*1.55, 0.38, -5.2);
+    const stool = makeBarStool(0x1f1f23, 0xe8b96a);
+    stool.position.set(-13.3 + i*1.55, 0, -5.2);
     roomGroup.add(stool);
   }
 

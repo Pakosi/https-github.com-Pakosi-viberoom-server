@@ -194,6 +194,127 @@ function roundedBox(w, h, d, color, roughness = 0.55, metalness = 0.15) {
   group.traverse(o => { o.castShadow = true; o.receiveShadow = true; });
   return group;
 }
+function cyl(rt, rb, h, color, segments = 12, roughness = 0.55, metalness = 0.15) {
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(rt, rb, h, segments),
+    new THREE.MeshStandardMaterial({ color, roughness, metalness })
+  );
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+function makeRugTexture(accent='#e8b96a', base='#151016') {
+  return canvasTex(512, 512, (ctx, w, h) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.035)';
+    for (let i = 0; i < 26; i++) ctx.fillRect(0, i * 20, w, 2);
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 14;
+    ctx.strokeRect(28, 28, w - 56, h - 56);
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.45;
+    for (let i = 0; i < 9; i++) {
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 38 + i * 24, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  });
+}
+function makeWoodTexture(base='#5f432c', grain='#c89b4a') {
+  return canvasTex(512, 256, (ctx, w, h) => {
+    const g = ctx.createLinearGradient(0, 0, w, h);
+    g.addColorStop(0, base);
+    g.addColorStop(1, '#241711');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 80; i++) {
+      ctx.strokeStyle = i % 3 ? 'rgba(255,220,150,0.08)' : 'rgba(0,0,0,0.16)';
+      ctx.lineWidth = 1 + Math.random() * 2;
+      ctx.beginPath();
+      const y = Math.random() * h;
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(w * 0.25, y + Math.random() * 28 - 14, w * 0.75, y + Math.random() * 28 - 14, w, y + Math.random() * 18 - 9);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = grain;
+    ctx.globalAlpha = 0.18;
+    ctx.strokeRect(10, 10, w - 20, h - 20);
+    ctx.globalAlpha = 1;
+  });
+}
+function makeLuxurySofa(width, depth, color=0x4a342d, accent=0xe8b96a) {
+  const g = new THREE.Group();
+  const cushion = roundedBox(width, 0.42, depth, color, 0.62, 0.08);
+  cushion.position.y = 0.72;
+  g.add(cushion);
+  const back = roundedBox(width, 1.15, 0.42, color, 0.68, 0.08);
+  back.position.set(0, 1.15, -depth / 2 + 0.12);
+  back.rotation.x = -0.08;
+  g.add(back);
+  const armL = roundedBox(0.52, 0.9, depth, color, 0.64, 0.1);
+  armL.position.set(-width / 2 + 0.18, 0.98, 0);
+  g.add(armL);
+  const armR = armL.clone();
+  armR.position.x = width / 2 - 0.18;
+  g.add(armR);
+  const seats = Math.max(2, Math.round(width / 2.1));
+  for (let i = 1; i < seats; i++) {
+    const seam = box(0.035, 0.05, depth * 0.78, 0x17100c, 0.7, 0.02);
+    seam.position.set(-width / 2 + (width / seats) * i, 0.96, 0.1);
+    g.add(seam);
+  }
+  for (const x of [-width / 2 + 0.7, width / 2 - 0.7]) {
+    for (const z of [-depth / 2 + 0.45, depth / 2 - 0.45]) {
+      const leg = cyl(0.07, 0.08, 0.45, 0x11151b, 8, 0.38, 0.55);
+      leg.position.set(x, 0.22, z);
+      g.add(leg);
+    }
+  }
+  const trim = box(width * 0.92, 0.04, 0.08, accent, 0.18, 0.75);
+  trim.position.set(0, 1.02, depth / 2 - 0.08);
+  g.add(trim);
+  return g;
+}
+function makeDesignerTable(w, d, color=0x2a2d33, topColor=0x7a5d43) {
+  const g = new THREE.Group();
+  const top = roundedBox(w, 0.26, d, topColor, 0.2, 0.42);
+  top.position.y = 0.72;
+  g.add(top);
+  const under = roundedBox(w * 0.82, 0.18, d * 0.72, color, 0.28, 0.72);
+  under.position.y = 0.52;
+  g.add(under);
+  for (const x of [-w * 0.36, w * 0.36]) {
+    for (const z of [-d * 0.3, d * 0.3]) {
+      const leg = cyl(0.07, 0.1, 0.52, 0x11161d, 8, 0.36, 0.68);
+      leg.position.set(x, 0.26, z);
+      g.add(leg);
+    }
+  }
+  return g;
+}
+function makeBarStool(color=0x22262d, accent=0xe8b96a) {
+  const g = new THREE.Group();
+  const seat = cyl(0.42, 0.36, 0.16, color, 14, 0.38, 0.48);
+  seat.position.y = 0.9;
+  g.add(seat);
+  const stem = cyl(0.06, 0.09, 0.82, 0x141820, 10, 0.32, 0.74);
+  stem.position.y = 0.46;
+  g.add(stem);
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.31, 0.025, 8, 24),
+    new THREE.MeshStandardMaterial({ color: accent, roughness: 0.22, metalness: 0.72 })
+  );
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.48;
+  ring.castShadow = true;
+  g.add(ring);
+  const base = cyl(0.32, 0.42, 0.08, 0x10141a, 14, 0.42, 0.64);
+  base.position.y = 0.04;
+  g.add(base);
+  return g;
+}
 function makeLabelTexture(title, sub, accent='#e8b96a', bg='#111') {
   return canvasTex(1024, 512, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, w, h);

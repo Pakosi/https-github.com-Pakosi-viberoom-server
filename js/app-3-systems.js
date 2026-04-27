@@ -34,20 +34,40 @@ function charBox(w, h, d, color) {
   );
   m.castShadow = true; return m;
 }
+function charCyl(rt, rb, h, color, segments = 10) {
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(rt, rb, h, segments),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.04 })
+  );
+  m.castShadow = true;
+  return m;
+}
+function charSphere(r, color, sx = 1, sy = 1, sz = 1) {
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(r, 12, 8),
+    new THREE.MeshStandardMaterial({ color, roughness: 0.66, metalness: 0.03 })
+  );
+  m.scale.set(sx, sy, sz);
+  m.castShadow = true;
+  return m;
+}
 
 function makeCharacter(preset, nameOverride) {
   const g = new THREE.Group();
   const skin = preset.skin || 0xf0c89c;
   const name = nameOverride || preset.name;
+  const hoodieColor = preset.hoodie === 'barca' ? 0xa50044 : new THREE.Color(preset.hoodie).getHex();
 
   const legL = new THREE.Group(); legL.position.set(-0.2, 0.9, 0);
-  const lL = charBox(0.38, 0.85, 0.38, 0x1a2438); lL.position.y = -0.4; legL.add(lL);
-  const shoeL = charBox(0.42, 0.18, 0.55, 0xeeeeee); shoeL.position.set(0, -0.9, 0.08); legL.add(shoeL);
+  const lL = charCyl(0.17, 0.2, 0.9, 0x1a2438, 8); lL.position.y = -0.42; legL.add(lL);
+  const shoeL = charBox(0.42, 0.18, 0.62, 0xeeeeee); shoeL.position.set(0, -0.9, 0.12); legL.add(shoeL);
+  const soleL = charBox(0.44, 0.05, 0.64, 0x101010); soleL.position.set(0, -1.01, 0.12); legL.add(soleL);
   g.add(legL);
 
   const legR = new THREE.Group(); legR.position.set(0.2, 0.9, 0);
-  const lR = charBox(0.38, 0.85, 0.38, 0x1a2438); lR.position.y = -0.4; legR.add(lR);
-  const shoeR = charBox(0.42, 0.18, 0.55, 0xeeeeee); shoeR.position.set(0, -0.9, 0.08); legR.add(shoeR);
+  const lR = charCyl(0.17, 0.2, 0.9, 0x1a2438, 8); lR.position.y = -0.42; legR.add(lR);
+  const shoeR = charBox(0.42, 0.18, 0.62, 0xeeeeee); shoeR.position.set(0, -0.9, 0.12); legR.add(shoeR);
+  const soleR = charBox(0.44, 0.05, 0.64, 0x101010); soleR.position.set(0, -1.01, 0.12); legR.add(soleR);
   g.add(legR);
 
   let torso;
@@ -58,47 +78,63 @@ function makeCharacter(preset, nameOverride) {
         ctx.fillRect(x, 0, 16, h);
       }
     });
-    torso = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.1, 0.5),
+    torso = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 1.12, 8),
       new THREE.MeshStandardMaterial({ map: shirtTex, roughness: 0.7 }));
     torso.castShadow = true; torso.position.y = 1.95; g.add(torso);
   } else {
-    torso = charBox(0.9, 1.1, 0.5, new THREE.Color(preset.hoodie).getHex());
+    torso = charCyl(0.42, 0.52, 1.12, hoodieColor, 8);
     torso.position.y = 1.95; g.add(torso);
-    const pocket = charBox(0.5, 0.3, 0.06, new THREE.Color(preset.hoodie).multiplyScalar(0.75).getHex());
-    pocket.position.set(0, 1.75, 0.26); g.add(pocket);
   }
+  const collar = charCyl(0.28, 0.34, 0.16, hoodieColor, 10);
+  collar.position.y = 2.54;
+  g.add(collar);
+  const pocket = charBox(0.5, 0.22, 0.05, new THREE.Color(hoodieColor).multiplyScalar(0.68).getHex());
+  pocket.position.set(0, 1.73, 0.43); g.add(pocket);
+  const zipper = charBox(0.035, 0.78, 0.035, 0xe8d8a8);
+  zipper.position.set(0, 1.98, 0.46); g.add(zipper);
+  const drawL = charCyl(0.018, 0.018, 0.42, 0xf1e0bc, 6);
+  drawL.position.set(-0.12, 2.28, 0.46); drawL.rotation.z = 0.08; g.add(drawL);
+  const drawR = charCyl(0.018, 0.018, 0.42, 0xf1e0bc, 6);
+  drawR.position.set(0.12, 2.28, 0.46); drawR.rotation.z = -0.08; g.add(drawR);
 
-  const armColor = preset.hoodie === 'barca' ? 0xa50044 : new THREE.Color(preset.hoodie).getHex();
   const armL = new THREE.Group(); armL.position.set(-0.59, 2.4, 0);
-  const aL = charBox(0.28, 1.0, 0.4, armColor); aL.position.y = -0.5; armL.add(aL);
-  const handL = charBox(0.28, 0.22, 0.32, skin); handL.position.y = -1.1; armL.add(handL);
+  const aL = charCyl(0.15, 0.13, 0.98, hoodieColor, 8); aL.position.y = -0.5; aL.rotation.z = -0.08; armL.add(aL);
+  const cuffL = charCyl(0.16, 0.16, 0.13, new THREE.Color(hoodieColor).multiplyScalar(0.58).getHex(), 8); cuffL.position.y = -1.0; armL.add(cuffL);
+  const handL = charSphere(0.16, skin, 0.9, 0.75, 1.0); handL.position.y = -1.13; armL.add(handL);
   g.add(armL);
 
   const armR = new THREE.Group(); armR.position.set(0.59, 2.4, 0);
-  const aR = charBox(0.28, 1.0, 0.4, armColor); aR.position.y = -0.5; armR.add(aR);
-  const handR = charBox(0.28, 0.22, 0.32, skin); handR.position.y = -1.1; armR.add(handR);
+  const aR = charCyl(0.15, 0.13, 0.98, hoodieColor, 8); aR.position.y = -0.5; aR.rotation.z = 0.08; armR.add(aR);
+  const cuffR = charCyl(0.16, 0.16, 0.13, new THREE.Color(hoodieColor).multiplyScalar(0.58).getHex(), 8); cuffR.position.y = -1.0; armR.add(cuffR);
+  const handR = charSphere(0.16, skin, 0.9, 0.75, 1.0); handR.position.y = -1.13; armR.add(handR);
   g.add(armR);
 
-  const head = charBox(0.8, 0.8, 0.8, skin);
+  const head = charSphere(0.43, skin, 0.88, 1.05, 0.92);
   head.position.y = 2.9; g.add(head);
   const headY = 2.9;
 
   if (preset.hair === 'bald') {
-    const scalp = charBox(0.82, 0.15, 0.82, 0xf8d8b0); scalp.position.y = headY + 0.32; g.add(scalp);
+    const scalp = charSphere(0.38, 0xf8d8b0, 0.9, 0.28, 0.9); scalp.position.y = headY + 0.32; g.add(scalp);
   } else if (preset.hair === 'fade') {
-    const hair = charBox(0.82, 0.2, 0.82, 0x0a0a0a); hair.position.y = headY + 0.25; g.add(hair);
+    const hair = charSphere(0.42, 0x0a0a0a, 0.92, 0.32, 0.92); hair.position.y = headY + 0.28; g.add(hair);
   } else {
-    const hair = charBox(0.82, 0.3, 0.82, 0x1a0f05); hair.position.y = headY + 0.4; g.add(hair);
+    const hair = charSphere(0.43, 0x1a0f05, 0.96, 0.42, 0.94); hair.position.y = headY + 0.38; g.add(hair);
+    const bang = charBox(0.34, 0.12, 0.12, 0x1a0f05); bang.position.set(-0.04, headY + 0.23, 0.34); bang.rotation.z = -0.22; g.add(bang);
   }
 
-  const eyeL = charBox(0.1, 0.1, 0.05, 0x0a0608); eyeL.position.set(-0.17, headY+0.05, 0.41); g.add(eyeL);
-  const eyeR = charBox(0.1, 0.1, 0.05, 0x0a0608); eyeR.position.set(0.17, headY+0.05, 0.41); g.add(eyeR);
+  const eyeL = charSphere(0.045, 0x0a0608, 1.0, 0.7, 0.32); eyeL.position.set(-0.16, headY+0.06, 0.39); g.add(eyeL);
+  const eyeR = charSphere(0.045, 0x0a0608, 1.0, 0.7, 0.32); eyeR.position.set(0.16, headY+0.06, 0.39); g.add(eyeR);
+  const browL = charBox(0.16, 0.035, 0.025, 0x18100a); browL.position.set(-0.16, headY+0.18, 0.39); browL.rotation.z = -0.12; g.add(browL);
+  const browR = charBox(0.16, 0.035, 0.025, 0x18100a); browR.position.set(0.16, headY+0.18, 0.39); browR.rotation.z = 0.12; g.add(browR);
 
   if (preset.bigNose) {
-    const nose = charBox(0.22, 0.35, 0.28, skin); nose.position.set(0, headY-0.05, 0.5); g.add(nose);
+    const nose = charCyl(0.08, 0.12, 0.26, skin, 8); nose.rotation.x = Math.PI / 2; nose.position.set(0, headY-0.04, 0.47); g.add(nose);
   } else {
-    const nose = charBox(0.12, 0.12, 0.12, skin); nose.position.set(0, headY-0.05, 0.45); g.add(nose);
+    const nose = charSphere(0.085, skin, 0.72, 0.86, 1.0); nose.position.set(0, headY-0.05, 0.43); g.add(nose);
   }
+  const smile = charBox(0.22, 0.025, 0.025, 0x6b2d22);
+  smile.position.set(0, headY - 0.22, 0.39);
+  g.add(smile);
 
   const tagC = document.createElement('canvas');
   tagC.width = 256; tagC.height = 72;
@@ -1090,4 +1126,3 @@ document.getElementById('ball-shoot').onclick = () => {
 document.getElementById('ball-reset').onclick = () => {
   ballMade = 0; ballTaken = 0; updateBallScore();
 };
-
