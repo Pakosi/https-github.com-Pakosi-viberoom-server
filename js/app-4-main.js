@@ -808,8 +808,8 @@ function updateRoomFx(t, dt) {
   if (safeDoor) {
     const target = Math.sin(t * 0.9) * 0.5 + 0.6;
     safeOpen += (target - safeOpen) * 0.02;
-    safeDoor.position.z = 11.4 + Math.sin(safeOpen) * 0.8;
-    safeDoor.position.x = -16.03 + (1 - Math.cos(safeOpen)) * 0.2;
+    safeDoor.position.z = Math.sin(safeOpen) * 0.8;
+    safeDoor.position.x = 1.07 + (1 - Math.cos(safeOpen)) * 0.2;
     safeDoor.rotation.y = -safeOpen;
   }
   eventPulse = Math.max(0, eventPulse - dt * 0.9);

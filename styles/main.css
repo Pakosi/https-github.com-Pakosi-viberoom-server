@@ -82,6 +82,42 @@ canvas { display: block; }
 #fifa-panel, #basketball-panel { width: min(420px, 94vw); text-align:center; }
 .mini-score { color:#e8b96a; font-size:16px; margin: 12px 0; }
 .mini-sub { color:#a89878; font-size:11px; line-height:1.5; }
+#safe-panel, #blackjack-panel { width: min(560px, 95vw); }
+.bj-topline, .bj-balance-grid {
+  display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin:10px 0;
+}
+.bj-topline span, .bj-balance-grid div {
+  background:linear-gradient(145deg, rgba(12,18,16,0.96), rgba(25,17,10,0.94));
+  border:1px solid #5c4726; border-radius:8px; color:#f0d28a; padding:10px;
+  font:700 12px/1.25 'Courier New', monospace; letter-spacing:1px;
+}
+.bj-balance-grid span { display:block; color:#9f8a5e; font-size:10px; margin-bottom:5px; }
+.bj-balance-grid b { color:#f7e3a8; font-size:18px; }
+.bj-status {
+  background:rgba(6,9,9,0.72); border:1px solid #3d5a44; border-radius:8px;
+  color:#bde8c6; padding:9px 10px; min-height:36px; font:12px/1.4 'Courier New', monospace;
+  margin:8px 0 10px;
+}
+.bj-section-title { color:#e8b96a; font:700 11px/1 'Courier New', monospace; letter-spacing:2px; margin:10px 0 7px; }
+.bj-table-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.bj-seat-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px; }
+.bj-seat-grid button, .bj-bet-row button, .bj-action-row button {
+  background:#17130d; color:#e8b96a; border:1px solid #c89b4a; border-radius:7px;
+  padding:10px 8px; font:700 11px/1.2 'Courier New', monospace; cursor:pointer; min-height:40px;
+}
+.bj-seat-grid button.occupied { color:#d8c8a8; border-color:#4a3a28; background:#111; cursor:default; }
+.bj-seat-grid button.mine { color:#061109; background:#e8b96a; border-color:#ffe3a0; }
+.bj-seat-grid button:disabled, .bj-bet-row button:disabled, .bj-action-row button:disabled { opacity:0.42; cursor:not-allowed; }
+.bj-hand { min-height:42px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.bj-card {
+  min-width:34px; height:46px; display:flex; align-items:center; justify-content:center; padding:0 5px;
+  border-radius:5px; background:#f6efe0; color:#16110b; border:1px solid #c8aa67;
+  font:700 13px/1 'Courier New', monospace; box-shadow:0 4px 10px rgba(0,0,0,0.28);
+}
+.bj-card.red { color:#b3262f; }
+.bj-card.hidden { background:linear-gradient(135deg, #1a3528, #08140f); color:#e8b96a; }
+.bj-bet-row, .bj-action-row { display:flex; gap:7px; flex-wrap:wrap; margin:9px 0; }
+.bj-bet-row button, .bj-action-row button { flex:1 1 96px; }
 
 /* Start screen */
 #start { position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 20%, #3a1e4a 0%, #1a0e28 40%, #050308 100%); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; z-index: 100; padding: 30px 15px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
@@ -107,6 +143,8 @@ canvas { display: block; }
 @media (pointer: coarse), (max-width: 900px) {
   #mobile-ctrls { display: block; }
   #hud { font-size: 10px; padding: 6px 8px; max-width: 160px; }
+  .bj-table-grid, .bj-topline, .bj-balance-grid { grid-template-columns:1fr; }
+  .bj-seat-grid { grid-template-columns:1fr; }
 }
 
 /* Landscape phone cleanup */

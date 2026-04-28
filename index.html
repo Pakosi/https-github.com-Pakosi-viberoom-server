@@ -124,6 +124,63 @@
     <button id="ball-reset">RESET</button>
   </div>
 
+  <div class="panel" id="safe-panel">
+    <button class="close">✕</button>
+    <h2>◆ PLAY-CHIP SAFE ◆</h2>
+    <div class="bj-balance-grid">
+      <div><span>BANK</span><b id="safe-bank">—</b></div>
+      <div><span>WALLET</span><b id="safe-wallet">—</b></div>
+    </div>
+    <div class="mini-sub">Play-money/social chips only. No cash-out, payments, crypto, or real financial value.</div>
+    <div class="bj-section-title">WITHDRAW TO WALLET</div>
+    <div class="bj-action-row">
+      <button data-safe-withdraw="100">100</button>
+      <button data-safe-withdraw="500">500</button>
+      <button data-safe-withdraw="1000">1000</button>
+    </div>
+    <div class="bj-section-title">DEPOSIT TO SAFE</div>
+    <div class="bj-action-row">
+      <button data-safe-deposit="100">100</button>
+      <button data-safe-deposit="500">500</button>
+      <button data-safe-deposit="1000">1000</button>
+    </div>
+    <div class="bj-status" id="safe-status">Walk to the safe to manage limited play chips.</div>
+  </div>
+
+  <div class="panel" id="blackjack-panel">
+    <button class="close">✕</button>
+    <h2>◆ BLACKJACK ◆</h2>
+    <div class="bj-topline">
+      <span id="bj-phase">PHASE: —</span>
+      <span id="bj-wallet">WALLET: —</span>
+    </div>
+    <div class="bj-status" id="bj-message">Waiting for table state...</div>
+    <div class="bj-table-grid">
+      <div>
+        <div class="bj-section-title">SEATS</div>
+        <div id="bj-seats" class="bj-seat-grid"></div>
+      </div>
+      <div>
+        <div class="bj-section-title">DEALER</div>
+        <div id="bj-dealer" class="bj-hand"></div>
+        <div class="bj-section-title">YOUR HAND</div>
+        <div id="bj-hand" class="bj-hand"></div>
+      </div>
+    </div>
+    <div class="bj-bet-row">
+      <button data-bj-bet="25">BET 25</button>
+      <button data-bj-bet="100">BET 100</button>
+      <button data-bj-bet="500">BET 500</button>
+    </div>
+    <div class="bj-action-row">
+      <button id="bj-hit">HIT</button>
+      <button id="bj-stand">STAND</button>
+      <button id="bj-double">DOUBLE</button>
+      <button id="bj-leave">LEAVE SEAT</button>
+    </div>
+    <div class="mini-sub">Server-authoritative play-money blackjack. No split, insurance, surrender, real-money value, or cash-out.</div>
+  </div>
+
   <div id="admin-panel">
     <div class="admin-title">ADMIN MOVE MODE</div>
     <div id="admin-info">Select object</div>

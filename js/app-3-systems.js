@@ -21,6 +21,7 @@ const INTERACTS = [
   { type: 'basketball', x: 16.0,  z: 10.6,  r: 3.8, label: 'BASKETBALL 🏀', anchorId:'basketball_zone', offsetX:-2.4, offsetZ:0 },
   { type: 'fifa',       x: 14.6,  z: -3.8,  r: 3.6, label: 'PS5 FIFA ⚽', anchorId:'fifa_zone', offsetX:0, offsetZ:2.8 },
   { type: 'money',      x: -16.0, z: 12.0,  r: 3.0, label: 'SAFE & CASH 💰', anchorId:'money_zone', offsetX:1.1, offsetZ:1.0 },
+  { type: 'blackjack',  x: -6.8,  z: -14.2, r: 4.4, label: 'BLACKJACK TABLE ♠', anchorId:'blackjack_table', offsetX:0, offsetZ:3.2 },
   { type: 'hostconsole', x: -3.0, z: -10.2, r: 2.6, label: 'HOST CONSOLE 🎛️', anchorId:'host_console' },
   { type: 'mediawall', x: 0.0, z: 25.5, r: 6.0, label: 'MEDIA WALL 📺' },
 ];
@@ -258,6 +259,12 @@ function handleServerMsg(msg) {
     case 'room_state':
       applyRoomState(msg.data || {});
       break;
+    case 'blackjack_state':
+      applyBlackjackState(msg.data || {});
+      break;
+    case 'blackjack_error':
+      showBlackjackNotice(msg.error || 'Blackjack action rejected.');
+      break;
     case 'host_event':
       applyHostEvent(msg.data || {}, false);
       break;
@@ -285,6 +292,205 @@ function maybeBroadcastPos(t) {
     ry: +player.group.rotation.y.toFixed(3),
     m: player._moving,
   }});
+}
+
+// ==================== BLACKJACK / SAFE ====================
+let blackjackState = null;
+let seatedBlackjackSeat = null;
+
+function chipFmt(v) {
+  return String(Math.floor(Number(v) || 0));
+}
+
+function cardLabel(card) {
+  if (!card) return '';
+  if (card.hidden) return '◆';
+  const suits = { S:'♠', H:'♥', D:'♦', C:'♣' };
+  return `${card.rank}${suits[card.suit] || card.suit || ''}`;
+}
+
+function cardIsRed(card) {
+  return card && (card.suit === 'H' || card.suit === 'D');
+}
+
+function makeCardHtml(card) {
+  const cls = card && card.hidden ? ' hidden' : (cardIsRed(card) ? ' red' : '');
+  return `<span class="bj-card${cls}">${cardLabel(card)}</span>`;
+}
+
+function myBlackjackPlayer() {
+  return blackjackState && blackjackState.players ? blackjackState.players[myId] : null;
+}
+
+function showBlackjackNotice(text) {
+  const bjMsg = document.getElementById('bj-message');
+  const safeMsg = document.getElementById('safe-status');
+  if (bjMsg) bjMsg.textContent = text;
+  if (safeMsg) safeMsg.textContent = text;
+}
+
+function blackjackSeatWorld(seat) {
+  const anchor = BLACKJACK_SEAT_ANCHORS[seat];
+  if (!anchor || !blackjackGroup) return null;
+  return blackjackGroup.localToWorld(new THREE.Vector3(anchor.x, FLOOR_Y, anchor.z + 0.68));
+}
+
+function blackjackSeatYaw(seat) {
+  const pos = blackjackSeatWorld(seat);
+  if (!pos || !blackjackGroup) return player.yaw;
+  const center = blackjackGroup.localToWorld(new THREE.Vector3(0, FLOOR_Y, 0.1));
+  return Math.atan2(center.x - pos.x, center.z - pos.z) - Math.PI;
+}
+
+function snapToBlackjackSeat(seat) {
+  const pos = blackjackSeatWorld(seat);
+  if (!pos) return;
+  player.group.position.set(pos.x, groundAt(pos.x, pos.z, player.group.position.y), pos.z);
+  player.vel.set(0, 0, 0);
+  player.onGround = true;
+  player.yaw = blackjackSeatYaw(seat);
+  player.group.rotation.y = player.yaw + Math.PI;
+}
+
+function updateBlackjackSeatVisuals() {
+  if (!blackjackState || !blackjackSeatMarkers) return;
+  for (let i = 0; i < blackjackSeatMarkers.length; i++) {
+    const marker = blackjackSeatMarkers[i];
+    const occupant = blackjackState.seats && blackjackState.seats[i];
+    if (!marker || !marker.material) continue;
+    marker.material.color.setHex(occupant === myId ? 0x7adf9a : (occupant ? 0xd05d5d : 0xe8b96a));
+    marker.material.opacity = occupant ? 0.9 : 0.62;
+  }
+}
+
+function makeBjCardTexture(label, red=false, hidden=false) {
+  return canvasTex(256, 360, (ctx, w, h) => {
+    if (hidden) {
+      ctx.fillStyle = '#083425';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#e8b96a';
+      ctx.lineWidth = 12;
+      ctx.strokeRect(16, 16, w - 32, h - 32);
+      ctx.fillStyle = '#e8b96a';
+      ctx.font = 'bold 74px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText('VR', w / 2, h / 2 + 24);
+      return;
+    }
+    ctx.fillStyle = '#f7efe1';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#c8aa67';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(10, 10, w - 20, h - 20);
+    ctx.fillStyle = red ? '#b3262f' : '#12100c';
+    ctx.font = 'bold 78px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, w / 2, h / 2 + 24);
+  });
+}
+
+function addBjCard(card, x, z, rot=0) {
+  if (!blackjackCardGroup) return;
+  const hidden = !!(card && card.hidden);
+  const tex = makeBjCardTexture(cardLabel(card), cardIsRed(card), hidden);
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.5, 0.72),
+    new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.rotation.z = rot;
+  mesh.position.set(x, 1.165, z);
+  blackjackCardGroup.add(mesh);
+}
+
+function clearGroupChildren(group) {
+  if (!group) return;
+  while (group.children.length) {
+    const child = group.children.pop();
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      if (child.material.map) child.material.map.dispose();
+      child.material.dispose();
+    }
+  }
+}
+
+function renderBlackjackTable3D() {
+  clearGroupChildren(blackjackCardGroup);
+  clearGroupChildren(blackjackChipGroup);
+  if (!blackjackState || !blackjackGroup) return;
+  const dealerHand = blackjackState.dealer && blackjackState.dealer.hand ? blackjackState.dealer.hand : [];
+  dealerHand.forEach((card, i) => addBjCard(card, -0.38 + i * 0.5, -0.95, -0.04 + i * 0.02));
+  for (let seat = 0; seat < (blackjackState.seats || []).length; seat++) {
+    const id = blackjackState.seats[seat];
+    const p = id && blackjackState.players ? blackjackState.players[id] : null;
+    if (!p) continue;
+    const anchor = BLACKJACK_SEAT_ANCHORS[seat];
+    const startX = anchor.x * 0.72 - ((p.hand || []).length - 1) * 0.25;
+    const z = anchor.z - 1.25;
+    (p.hand || []).forEach((card, i) => addBjCard(card, startX + i * 0.5, z, anchor.ry * 0.25));
+    if (p.bet > 0 && blackjackChipGroup) {
+      const stack = Math.min(5, Math.max(1, Math.ceil(p.bet / 100)));
+      for (let j = 0; j < stack; j++) {
+        const chip = cyl(0.16, 0.16, 0.055, j % 2 ? 0xf4f0e6 : 0xb3262f, 18, 0.28, 0.2);
+        chip.position.set(anchor.x * 0.82, 1.16 + j * 0.055, anchor.z - 1.78);
+        blackjackChipGroup.add(chip);
+      }
+    }
+  }
+}
+
+function applyBlackjackState(data) {
+  blackjackState = data;
+  const me = myBlackjackPlayer();
+  seatedBlackjackSeat = me && me.seat !== null && me.seat !== undefined ? me.seat : null;
+  if (seatedBlackjackSeat !== null) snapToBlackjackSeat(seatedBlackjackSeat);
+  updateBlackjackSeatVisuals();
+  renderBlackjackTable3D();
+  renderBlackjackPanel();
+  renderSafePanel();
+}
+
+function renderSafePanel() {
+  const me = myBlackjackPlayer();
+  const bank = document.getElementById('safe-bank');
+  const wallet = document.getElementById('safe-wallet');
+  if (bank) bank.textContent = me ? chipFmt(me.bank) : '—';
+  if (wallet) wallet.textContent = me ? chipFmt(me.wallet) : '—';
+}
+
+function renderBlackjackPanel() {
+  const el = document.getElementById('blackjack-panel');
+  if (!blackjackState || !el) return;
+  const me = myBlackjackPlayer();
+  document.getElementById('bj-phase').textContent = `PHASE: ${String(blackjackState.phase || '—').toUpperCase()}`;
+  document.getElementById('bj-wallet').textContent = `WALLET: ${me ? chipFmt(me.wallet) : '—'}`;
+  document.getElementById('bj-message').textContent = blackjackState.message || '';
+  const seatsEl = document.getElementById('bj-seats');
+  seatsEl.innerHTML = '';
+  for (let i = 0; i < (blackjackState.seats || []).length; i++) {
+    const id = blackjackState.seats[i];
+    const p = id && blackjackState.players ? blackjackState.players[id] : null;
+    const b = document.createElement('button');
+    b.textContent = p ? `SEAT ${i + 1}: ${p.name}${p.bet ? ' · BET ' + p.bet : ''}` : `SIT SEAT ${i + 1}`;
+    b.disabled = !!id && id !== myId;
+    b.className = id === myId ? 'mine' : (id ? 'occupied' : '');
+    b.onclick = () => wsSend({ type:'blackjack_sit', seat:i });
+    seatsEl.appendChild(b);
+  }
+  const dealer = blackjackState.dealer || { hand: [] };
+  document.getElementById('bj-dealer').innerHTML = (dealer.hand || []).map(makeCardHtml).join('') + (dealer.total ? `<span class="mini-sub">TOTAL ${dealer.total}</span>` : '');
+  document.getElementById('bj-hand').innerHTML = me && me.hand && me.hand.length
+    ? me.hand.map(makeCardHtml).join('') + `<span class="mini-sub">TOTAL ${me.total || 0} · BET ${me.bet || 0}${me.result ? ' · ' + me.result : ''}</span>`
+    : '<span class="mini-sub">Sit and bet to receive cards.</span>';
+  const isTurn = me && me.seat !== null && blackjackState.turnSeat === me.seat && blackjackState.phase === 'player_turn';
+  document.getElementById('bj-hit').disabled = !isTurn;
+  document.getElementById('bj-stand').disabled = !isTurn;
+  document.getElementById('bj-double').disabled = !isTurn || !me || (me.hand || []).length !== 2 || me.wallet < me.bet;
+  document.querySelectorAll('[data-bj-bet]').forEach(btn => {
+    const amount = Number(btn.dataset.bjBet);
+    btn.disabled = !me || me.seat === null || blackjackState.phase !== 'betting' || me.wallet < amount;
+  });
 }
 
 // ==================== MIC ====================
@@ -320,7 +526,7 @@ document.addEventListener('keydown', e => {
   if (e.key.toLowerCase() === 'm') { e.preventDefault(); toggleMic(); }
   if (e.key === ' ' && e.target.tagName !== 'INPUT') {
     e.preventDefault();
-    if (player.onGround) { player.vel.y = 7; player.onGround = false; }
+    if (seatedBlackjackSeat === null && player.onGround) { player.vel.y = 7; player.onGround = false; }
   }
   if (e.key.toLowerCase() === 'c') toggleView();
   if (e.key.toLowerCase() === 'v') joinTVAudioAnywhere();
@@ -396,7 +602,7 @@ renderer.domElement.addEventListener('touchend', e => {
 
 document.getElementById('btn-jump').addEventListener('touchstart', e => {
   e.preventDefault();
-  if (player.onGround && !anyPanelOpen()) { player.vel.y = 7; player.onGround = false; }
+  if (seatedBlackjackSeat === null && player.onGround && !anyPanelOpen()) { player.vel.y = 7; player.onGround = false; }
 }, { passive:false });
 document.getElementById('btn-e').addEventListener('touchstart', e => { e.preventDefault(); if (!anyPanelOpen()) tryInteract(); }, { passive:false });
 document.getElementById('btn-t').addEventListener('touchstart', e => { e.preventDefault(); openPanel('chat-panel'); setTimeout(()=>document.getElementById('chat-input').focus(),50); }, { passive:false });
@@ -530,6 +736,19 @@ function openPanel(id) {
   if (document.pointerLockElement) document.exitPointerLock();
 }
 document.querySelectorAll('.panel .close').forEach(b => b.onclick = closeAllPanels);
+document.querySelectorAll('[data-safe-withdraw]').forEach(b => {
+  b.addEventListener('click', () => wsSend({ type:'safe_withdraw', amount:Number(b.dataset.safeWithdraw) }));
+});
+document.querySelectorAll('[data-safe-deposit]').forEach(b => {
+  b.addEventListener('click', () => wsSend({ type:'safe_deposit', amount:Number(b.dataset.safeDeposit) }));
+});
+document.querySelectorAll('[data-bj-bet]').forEach(b => {
+  b.addEventListener('click', () => wsSend({ type:'blackjack_bet', amount:Number(b.dataset.bjBet) }));
+});
+document.getElementById('bj-hit').addEventListener('click', () => wsSend({ type:'blackjack_hit' }));
+document.getElementById('bj-stand').addEventListener('click', () => wsSend({ type:'blackjack_stand' }));
+document.getElementById('bj-double').addEventListener('click', () => wsSend({ type:'blackjack_double' }));
+document.getElementById('bj-leave').addEventListener('click', () => wsSend({ type:'blackjack_leave' }));
 
 // ==================== INTERACTIONS ====================
 function nearest() {
@@ -553,7 +772,8 @@ function tryInteract() {
   else if (i.type === 'table') { document.getElementById('war-count').textContent = String(remotes.size + 1); openPanel('war-panel'); }
   else if (i.type === 'basketball') openPanel('basketball-panel');
   else if (i.type === 'fifa') { openPanel('fifa-panel'); startSoccerGame(); }
-  else if (i.type === 'money') addChat('System', '*' + player.name + ' admires the cash pile like a true menace 💰*', '#7adf9a');
+  else if (i.type === 'money') { wsSend({ type:'blackjack_get' }); openPanel('safe-panel'); }
+  else if (i.type === 'blackjack') { wsSend({ type:'blackjack_get' }); openPanel('blackjack-panel'); }
   else if (i.type === 'mediawall') { if (hostState.media.videoId) startTVPlayback(true); else addChat('System', '*TV is idle*', '#e8b96a'); }
   else if (i.type === 'hostconsole') {
     if (isHostUser()) {
@@ -607,6 +827,16 @@ function groundAt(x, z, currentY = FLOOR_Y) {
 }
 
 function updatePlayer(dt, t) {
+  if (seatedBlackjackSeat !== null) {
+    snapToBlackjackSeat(seatedBlackjackSeat);
+    player._moving = false;
+    const n = nearest();
+    const prompt = document.getElementById('prompt');
+    if (n && n.type === 'blackjack') { prompt.textContent = '▸ E: BLACKJACK TABLE'; prompt.style.display = 'block'; }
+    else { prompt.style.display = 'none'; }
+    maybeBroadcastPos(t);
+    return;
+  }
   if (anyPanelOpen() || adminMode) { player._moving = false; return; }
   const sp = keys['shift'] ? 9 : 5.4;
   fwd.set(Math.sin(player.yaw), 0, Math.cos(player.yaw));

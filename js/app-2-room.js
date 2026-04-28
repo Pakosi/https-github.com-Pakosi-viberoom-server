@@ -11,6 +11,19 @@ let cashStack = null;
 let centerSculpture = null;
 let tableTopDisplay = null;
 let tableInteractAnchor = new THREE.Vector3(0,0,0);
+let blackjackGroup = null;
+let blackjackCardGroup = null;
+let blackjackChipGroup = null;
+let blackjackSeatMarkers = [];
+const BLACKJACK_TABLE_POS = { x: -6.8, y: 0, z: -17.4, ry: 0 };
+const BLACKJACK_SEAT_ANCHORS = [
+  { x: -3.55, z: 2.55, ry: -0.62 },
+  { x: -2.15, z: 3.25, ry: -0.36 },
+  { x: -0.7, z: 3.55, ry: -0.12 },
+  { x: 0.7, z: 3.55, ry: 0.12 },
+  { x: 2.15, z: 3.25, ry: 0.36 },
+  { x: 3.55, z: 2.55, ry: 0.62 }
+];
 
 
 const HOST_PREFIX = '__HOST__';
@@ -1386,6 +1399,94 @@ function buildCustomRoom() {
   moneySign.position.set(3.5, 2.4, 2.4);
   moneyGroup.add(moneySign);
 
+  // social blackjack table
+  blackjackGroup = new THREE.Group();
+  blackjackGroup.position.set(BLACKJACK_TABLE_POS.x, BLACKJACK_TABLE_POS.y, BLACKJACK_TABLE_POS.z);
+  blackjackGroup.rotation.y = BLACKJACK_TABLE_POS.ry;
+  roomGroup.add(blackjackGroup);
+  registerAdminObject('blackjack_table', blackjackGroup, { interactType:'blackjack' });
+
+  const bjRug = new THREE.Mesh(
+    new THREE.PlaneGeometry(10.6, 8.2),
+    new THREE.MeshStandardMaterial({ map: makeRugTexture('#d6b05c', '#120b09'), transparent: true, opacity: 0.62, roughness: 0.7, metalness: 0.02 })
+  );
+  bjRug.rotation.x = -Math.PI / 2;
+  bjRug.position.set(0, 0.038, 1.0);
+  blackjackGroup.add(bjRug);
+
+  const tableShape = new THREE.Shape();
+  tableShape.moveTo(-4.2, -1.7);
+  tableShape.lineTo(4.2, -1.7);
+  tableShape.absellipse(0, -1.7, 4.2, 4.6, 0, Math.PI, false);
+  tableShape.lineTo(-4.2, -1.7);
+  const tableTop = new THREE.Mesh(
+    new THREE.ShapeGeometry(tableShape, 28),
+    new THREE.MeshStandardMaterial({ color: 0x0b4b35, roughness: 0.58, metalness: 0.04, side: THREE.DoubleSide })
+  );
+  tableTop.rotation.x = -Math.PI / 2;
+  tableTop.position.y = 1.12;
+  tableTop.receiveShadow = true;
+  blackjackGroup.add(tableTop);
+
+  const tableBase = roundedBox(7.8, 0.7, 3.2, 0x15100b, 0.32, 0.64);
+  tableBase.position.set(0, 0.56, 0.0);
+  blackjackGroup.add(tableBase);
+  const rail = new THREE.Mesh(
+    new THREE.TorusGeometry(3.95, 0.12, 8, 48, Math.PI),
+    new THREE.MeshStandardMaterial({ color: 0x7a4c23, roughness: 0.28, metalness: 0.36 })
+  );
+  rail.rotation.x = Math.PI / 2;
+  rail.position.set(0, 1.2, -1.7);
+  blackjackGroup.add(rail);
+  const dealerRail = box(8.5, 0.22, 0.32, 0x7a4c23, 0.28, 0.36);
+  dealerRail.position.set(0, 1.2, -1.78);
+  blackjackGroup.add(dealerRail);
+
+  const feltLabel = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.2, 0.72),
+    new THREE.MeshBasicMaterial({ map: makeLabelTexture('BLACKJACK', 'PAYS 3 TO 2', '#f1d27a', '#083425'), transparent: true })
+  );
+  feltLabel.rotation.x = -Math.PI / 2;
+  feltLabel.position.set(0, 1.135, 0.25);
+  blackjackGroup.add(feltLabel);
+
+  blackjackCardGroup = new THREE.Group();
+  blackjackGroup.add(blackjackCardGroup);
+  blackjackChipGroup = new THREE.Group();
+  blackjackGroup.add(blackjackChipGroup);
+  blackjackSeatMarkers = [];
+  for (let i = 0; i < BLACKJACK_SEAT_ANCHORS.length; i++) {
+    const s = BLACKJACK_SEAT_ANCHORS[i];
+    const chair = makeBarStool(0x171a1f, 0xd6b05c);
+    chair.position.set(s.x, 0, s.z + 0.55);
+    chair.rotation.y = Math.PI + s.ry;
+    blackjackGroup.add(chair);
+
+    const marker = new THREE.Mesh(
+      new THREE.RingGeometry(0.34, 0.46, 24),
+      new THREE.MeshBasicMaterial({ color: 0xe8b96a, transparent: true, opacity: 0.72, side: THREE.DoubleSide })
+    );
+    marker.rotation.x = -Math.PI / 2;
+    marker.position.set(s.x, 1.145, s.z - 0.78);
+    blackjackGroup.add(marker);
+    blackjackSeatMarkers.push(marker);
+
+    const chipSpot = new THREE.Mesh(
+      new THREE.RingGeometry(0.28, 0.34, 20),
+      new THREE.MeshBasicMaterial({ color: 0xf6e7b8, transparent: true, opacity: 0.38, side: THREE.DoubleSide })
+    );
+    chipSpot.rotation.x = -Math.PI / 2;
+    chipSpot.position.set(s.x * 0.82, 1.14, s.z - 1.62);
+    blackjackGroup.add(chipSpot);
+  }
+
+  const dealerPlaque = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 0.5),
+    new THREE.MeshBasicMaterial({ map: makeLabelTexture('DEALER', 'SERVER SHOE', '#e8b96a', '#100b07') })
+  );
+  dealerPlaque.position.set(0, 2.2, -2.95);
+  blackjackGroup.add(dealerPlaque);
+
   // seating near gaming
   const gameSofa = makeLuxurySofa(4.4, 1.55, 0x1d2027, 0x6d78ff);
   gameSofa.position.set(12.6, 0.05, -0.8);
@@ -1420,6 +1521,7 @@ function buildCustomRoom() {
   addSpot(16.8, 9.0, 8.9, 0xffa066, 1.35, 20, Math.PI/5, 2.9);
   addSpot(-15.6, 8.8, -7.3, 0xe8b96a, 1.6, 20, Math.PI/6, 2.1);
   addSpot(-16.7, 7.8, 11.9, 0x7adf9a, 1.2, 14, Math.PI/6, 1.6);
+  addSpot(-6.8, 7.8, -14.6, 0xe8b96a, 1.35, 18, Math.PI/6, 1.2);
   addSpot(38.1, 11.8, 14.0, 0xffb45f, 1.35, 22, Math.PI/5, 3.4);
   addSpot(24.0, 13.2, -7.5, 0x9b62ff, 1.25, 24, Math.PI/5, LOFT_H + 0.5);
   addSpot(0.0, 13.5, 24.0, 0xe8b96a, 1.35, 30, Math.PI/6, 5.2);
@@ -1429,6 +1531,7 @@ function buildCustomRoom() {
     { anchorId:'bar', halfW:5.2, halfD:1.5, offsetX:0, offsetZ:0 },
     { anchorId:'lounge_zone', halfW:4.6, halfD:3.7, offsetX:0, offsetZ:0 },
     { anchorId:'war_table', halfW:4.4, halfD:2.5, offsetX:0, offsetZ:0 },
+    { anchorId:'blackjack_table', halfW:4.7, halfD:2.5, offsetX:0, offsetZ:0.3 },
     { anchorId:'snake_zone', halfW:2.5, halfD:1.1, offsetX:0, offsetZ:0 },
     { anchorId:'basketball_zone', halfW:1.0, halfD:1.3, offsetX:4.1, offsetZ:0 },
     { anchorId:'money_zone', halfW:1.8, halfD:1.4, offsetX:0.6, offsetZ:0.4 }
