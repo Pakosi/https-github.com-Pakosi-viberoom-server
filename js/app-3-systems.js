@@ -480,6 +480,10 @@ function renderBlackjackTable3D() {
   clearGroupChildren(blackjackChipGroup);
   clearGroupChildren(blackjackStatusGroup);
   if (!blackjackState || !blackjackGroup) return;
+  const me = myBlackjackPlayer();
+  const tablePhase = blackjackPhaseLabel(me);
+  const phaseColor = tablePhase === 'YOUR TURN' ? '#7adf9a' : (blackjackState.phase === 'results' ? '#f2d27a' : '#e8b96a');
+  addBjTableBadge(tablePhase, blackjackState.message || '', 0, 0.78, phaseColor, 2.35, 0.5);
   const dealerHand = blackjackState.dealer && blackjackState.dealer.hand ? blackjackState.dealer.hand : [];
   const dealerStart = -((dealerHand.length - 1) * 0.34);
   dealerHand.forEach((card, i) => addBjCard(card, dealerStart + i * 0.68, -0.96 + i * 0.02, -0.08 + i * 0.035, 1.06));

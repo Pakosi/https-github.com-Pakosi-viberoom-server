@@ -49,6 +49,14 @@ canvas { display: block; }
   pointer-events: none;
   box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
+#perf-debug {
+  position:absolute; left:10px; top:92px; z-index:26; display:none;
+  min-width:190px; background:rgba(5,8,10,0.88); color:#d8f2df;
+  border:1px solid #7adf9a; border-radius:8px; padding:9px 10px;
+  font:11px/1.45 'Courier New', monospace; letter-spacing:1px;
+  pointer-events:none; backdrop-filter:blur(8px); box-shadow:0 10px 28px rgba(0,0,0,0.36);
+}
+#perf-debug b { color:#7adf9a; display:block; margin-bottom:5px; }
 
 #crosshair { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; transform: translate(-50%,-50%); pointer-events: none; }
 #crosshair::before, #crosshair::after { content:''; position: absolute; background: rgba(255,255,255,0.7); mix-blend-mode: difference; }

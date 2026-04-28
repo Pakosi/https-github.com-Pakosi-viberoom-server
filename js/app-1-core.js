@@ -60,10 +60,10 @@ const deviceInfo = {
 };
 const QUALITY_ORDER = ['low', 'balanced', 'high', 'ultra'];
 const QUALITY_PRESETS = {
-  low:      { label:'LOW',      mobileDpr:0.9, desktopDpr:1.0, shadow:0,    shadowMap:512,  fog:1.16, exposure:0.94, light:0.88, spotShadows:false },
-  balanced: { label:'BALANCED', mobileDpr:1.2, desktopDpr:1.35, shadow:0.8,  shadowMap:768,  fog:1.04, exposure:1.0,  light:1.0,  spotShadows:false },
-  high:     { label:'HIGH',     mobileDpr:1.45, desktopDpr:1.75, shadow:1.0, shadowMap:1024, fog:0.94, exposure:1.05, light:1.08, spotShadows:!MOBILE },
-  ultra:    { label:'ULTRA',    mobileDpr:1.55, desktopDpr:2.0,  shadow:1.0, shadowMap:1536, fog:0.86, exposure:1.1,  light:1.14, spotShadows:!MOBILE }
+  low:      { label:'LOW',      mobileDpr:1.0,  desktopDpr:1.0,  shadow:0,    shadowMap:512,  fog:1.16, exposure:0.94, light:0.78, spotShadows:false, spotBudget:0, pointScale:0.55 },
+  balanced: { label:'BALANCED', mobileDpr:1.1,  desktopDpr:1.3,  shadow:MOBILE ? 0 : 0.65, shadowMap:768,  fog:1.04, exposure:1.0,  light:0.92, spotShadows:false, spotBudget:MOBILE ? 2 : 3, pointScale:0.72 },
+  high:     { label:'HIGH',     mobileDpr:1.25, desktopDpr:1.65, shadow:MOBILE ? 0 : 0.9, shadowMap:1024, fog:0.94, exposure:1.05, light:1.02, spotShadows:!MOBILE, spotBudget:MOBILE ? 4 : 6, pointScale:0.9 },
+  ultra:    { label:'ULTRA',    mobileDpr:1.5,  desktopDpr:2.0,  shadow:MOBILE ? 0 : 1.0, shadowMap:1536, fog:0.86, exposure:1.1,  light:1.1,  spotShadows:!MOBILE, spotBudget:MOBILE ? 5 : 9, pointScale:1.0 }
 };
 function detectGraphicsQuality() {
   const saved = localStorage.getItem('viberoom.graphics');
@@ -118,13 +118,16 @@ function applyGraphicsQuality(save=true, notify=false) {
     key.castShadow = q.shadow > 0;
     key.shadow.mapSize.set(q.shadowMap, q.shadowMap);
   }
-  if (typeof purpleFill !== 'undefined') purpleFill.intensity = (MOBILE ? 1.5 : 2.2) * q.light;
-  if (typeof goldFill !== 'undefined') goldFill.intensity = (MOBILE ? 1.45 : 2.0) * q.light;
-  if (typeof frontFill !== 'undefined') frontFill.intensity = (MOBILE ? 0.8 : 1.0) * q.light;
-  if (typeof warmFloorFill !== 'undefined') warmFloorFill.intensity = (MOBILE ? 0.9 : 1.2) * q.light;
-  for (const s of qualitySpotlights) {
-    s.castShadow = q.spotShadows;
-    s.intensity = (s.userData.baseIntensity || s.intensity) * q.light;
+  if (typeof purpleFill !== 'undefined') purpleFill.intensity = (MOBILE ? 1.5 : 2.2) * q.light * q.pointScale;
+  if (typeof goldFill !== 'undefined') goldFill.intensity = (MOBILE ? 1.45 : 2.0) * q.light * q.pointScale;
+  if (typeof frontFill !== 'undefined') frontFill.intensity = (MOBILE ? 0.8 : 1.0) * q.light * q.pointScale;
+  if (typeof warmFloorFill !== 'undefined') warmFloorFill.intensity = (MOBILE ? 0.9 : 1.2) * q.light * q.pointScale;
+  for (let i = 0; i < qualitySpotlights.length; i++) {
+    const s = qualitySpotlights[i];
+    const enabled = i < q.spotBudget;
+    s.visible = enabled;
+    s.castShadow = enabled && q.spotShadows;
+    s.intensity = enabled ? (s.userData.baseIntensity || s.intensity) * q.light : 0;
     s.shadow.mapSize.set(Math.min(q.shadowMap, 1024), Math.min(q.shadowMap, 1024));
   }
   if (save) localStorage.setItem('viberoom.graphics', graphicsQuality);

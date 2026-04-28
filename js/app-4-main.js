@@ -845,6 +845,58 @@ const graphicsPerf = {
   lowFor: 0,
   cooldown: 0
 };
+const perfDebug = {
+  visible: localStorage.getItem('viberoom.perfDebug') === '1',
+  sampleTime: 0,
+  frames: 0,
+  fps: 0
+};
+function activeLightCount() {
+  let count = 0;
+  scene.traverse(o => {
+    if (o.isLight && o.visible && o.intensity > 0) count += 1;
+  });
+  return count;
+}
+function syncPerfDebugVisibility() {
+  const panel = document.getElementById('perf-debug');
+  const badge = document.getElementById('perf-badge');
+  if (panel) panel.style.display = perfDebug.visible ? 'block' : 'none';
+  if (badge) badge.classList.toggle('live', perfDebug.visible);
+}
+function togglePerfDebug() {
+  perfDebug.visible = !perfDebug.visible;
+  localStorage.setItem('viberoom.perfDebug', perfDebug.visible ? '1' : '0');
+  syncPerfDebugVisibility();
+}
+function updatePerfDebug(dt) {
+  perfDebug.sampleTime += dt;
+  perfDebug.frames += 1;
+  if (perfDebug.sampleTime < 0.5) return;
+  perfDebug.fps = perfDebug.frames / perfDebug.sampleTime;
+  perfDebug.sampleTime = 0;
+  perfDebug.frames = 0;
+  if (!perfDebug.visible) return;
+  const info = renderer.info;
+  const lines = document.getElementById('perf-debug-lines');
+  if (!lines) return;
+  lines.innerHTML = [
+    `FPS ${perfDebug.fps.toFixed(1)}`,
+    `Draw ${info.render.calls}`,
+    `Tris ${info.render.triangles}`,
+    `Geo ${info.memory.geometries}`,
+    `Tex ${info.memory.textures}`,
+    `Lights ${activeLightCount()}`,
+    `DPR ${getQualityDpr().toFixed(2)}`,
+    `Preset ${getQualityPreset().label}`
+  ].join('<br>');
+}
+document.getElementById('perf-badge')?.addEventListener('click', togglePerfDebug);
+document.addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') return;
+  if (e.key.toLowerCase() === 'p') togglePerfDebug();
+});
+syncPerfDebugVisibility();
 function sampleGraphicsPerformance(dt) {
   if (!graphicsPerf.monitoring) return;
   graphicsPerf.sampleTime += dt;
@@ -878,6 +930,7 @@ function animate() {
   updateCamera();
   renderer.render(scene, camera);
   sampleGraphicsPerformance(dt);
+  updatePerfDebug(dt);
 }
 animate();
 
