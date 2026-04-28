@@ -14,6 +14,7 @@ let tableInteractAnchor = new THREE.Vector3(0,0,0);
 let blackjackGroup = null;
 let blackjackCardGroup = null;
 let blackjackChipGroup = null;
+let blackjackStatusGroup = null;
 let blackjackSeatMarkers = [];
 const BLACKJACK_TABLE_POS = { x: -6.8, y: 0, z: -17.4, ry: 0 };
 const BLACKJACK_SEAT_ANCHORS = [
@@ -130,6 +131,55 @@ function drawMediaScreen() {
     ctx.fillText('Load a YouTube link to turn this wall into the room TV.', w/2, 320);
   }
   if (mediaScreenTex) mediaScreenTex.needsUpdate = true;
+}
+function makeBlackjackFeltTexture() {
+  return canvasTex(1024, 1024, (ctx, w, h) => {
+    const g = ctx.createRadialGradient(w / 2, h * 0.42, 80, w / 2, h / 2, w * 0.62);
+    g.addColorStop(0, '#136145');
+    g.addColorStop(0.58, '#0b4b35');
+    g.addColorStop(1, '#063322');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(246,226,167,0.42)';
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(w / 2, h * 0.58, w * 0.36, Math.PI * 1.03, Math.PI * 1.97);
+    ctx.stroke();
+    ctx.fillStyle = '#f1d27a';
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 86px Georgia';
+    ctx.fillText('BLACKJACK', w / 2, h * 0.39);
+    ctx.font = 'bold 34px Courier New';
+    ctx.fillText('PAYS 3 TO 2', w / 2, h * 0.45);
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = 'bold 24px Courier New';
+    ctx.fillText('DEALER STANDS ON 17', w / 2, h * 0.22);
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.25, h * 0.27);
+    ctx.lineTo(w * 0.75, h * 0.27);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(246,226,167,0.38)';
+    for (let i = 0; i < 6; i++) {
+      const x = w * (0.18 + i * 0.128);
+      const y = h * (0.78 - Math.abs(i - 2.5) * 0.025);
+      ctx.beginPath();
+      ctx.ellipse(x, y, 48, 34, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(241,210,122,0.72)';
+      ctx.font = 'bold 18px Courier New';
+      ctx.fillText('BET', x, y + 7);
+    }
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 18; i++) {
+      ctx.beginPath();
+      ctx.moveTo(0, i * 58);
+      ctx.lineTo(w, i * 58 + 18);
+      ctx.stroke();
+    }
+  });
 }
 function ensureTVDom() {
   if (tvCreated) return;
@@ -1421,7 +1471,7 @@ function buildCustomRoom() {
   tableShape.lineTo(-4.2, -1.7);
   const tableTop = new THREE.Mesh(
     new THREE.ShapeGeometry(tableShape, 28),
-    new THREE.MeshStandardMaterial({ color: 0x0b4b35, roughness: 0.58, metalness: 0.04, side: THREE.DoubleSide })
+    new THREE.MeshStandardMaterial({ map: makeBlackjackFeltTexture(), color: 0xffffff, roughness: 0.58, metalness: 0.04, side: THREE.DoubleSide })
   );
   tableTop.rotation.x = -Math.PI / 2;
   tableTop.position.y = 1.12;
@@ -1454,6 +1504,8 @@ function buildCustomRoom() {
   blackjackGroup.add(blackjackCardGroup);
   blackjackChipGroup = new THREE.Group();
   blackjackGroup.add(blackjackChipGroup);
+  blackjackStatusGroup = new THREE.Group();
+  blackjackGroup.add(blackjackStatusGroup);
   blackjackSeatMarkers = [];
   for (let i = 0; i < BLACKJACK_SEAT_ANCHORS.length; i++) {
     const s = BLACKJACK_SEAT_ANCHORS[i];
@@ -1479,6 +1531,15 @@ function buildCustomRoom() {
     chipSpot.position.set(s.x * 0.82, 1.14, s.z - 1.62);
     blackjackGroup.add(chipSpot);
   }
+
+  const dealerZone = new THREE.Mesh(
+    new THREE.RingGeometry(0.72, 0.86, 32),
+    new THREE.MeshBasicMaterial({ color: 0xf6e7b8, transparent: true, opacity: 0.32, side: THREE.DoubleSide })
+  );
+  dealerZone.rotation.x = -Math.PI / 2;
+  dealerZone.scale.x = 1.8;
+  dealerZone.position.set(0, 1.142, -0.95);
+  blackjackGroup.add(dealerZone);
 
   const dealerPlaque = new THREE.Mesh(
     new THREE.PlaneGeometry(2.2, 0.5),

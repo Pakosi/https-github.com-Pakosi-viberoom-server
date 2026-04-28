@@ -371,7 +371,9 @@ function updateBlackjackSeatVisuals() {
     const marker = blackjackSeatMarkers[i];
     const occupant = blackjackState.seats && blackjackState.seats[i];
     if (!marker || !marker.material) continue;
-    marker.material.color.setHex(blackjackState.turnSeat === i ? 0x7adf9a : (occupant === myId ? 0xe8b96a : (occupant ? 0xd05d5d : 0xe8b96a)));
+    const p = occupant && blackjackState.players ? blackjackState.players[occupant] : null;
+    const resultColor = p && (p.result === 'YOU WIN' || p.result === 'BLACKJACK') ? 0x7adf9a : (p && (p.result === 'LOSE' || p.result === 'BUST') ? 0xff7f7f : 0xe8b96a);
+    marker.material.color.setHex(blackjackState.turnSeat === i ? 0x7adf9a : (p && p.result ? resultColor : (occupant === myId ? 0xe8b96a : (occupant ? 0xd05d5d : 0xe8b96a))));
     marker.material.opacity = blackjackState.turnSeat === i ? 1 : (occupant ? 0.9 : 0.62);
   }
 }
@@ -379,41 +381,86 @@ function updateBlackjackSeatVisuals() {
 function makeBjCardTexture(label, red=false, hidden=false) {
   return canvasTex(256, 360, (ctx, w, h) => {
     if (hidden) {
-      ctx.fillStyle = '#083425';
+      const g = ctx.createLinearGradient(0, 0, w, h);
+      g.addColorStop(0, '#123f31');
+      g.addColorStop(1, '#06120d');
+      ctx.fillStyle = g;
       ctx.fillRect(0, 0, w, h);
       ctx.strokeStyle = '#e8b96a';
       ctx.lineWidth = 12;
       ctx.strokeRect(16, 16, w - 32, h - 32);
+      ctx.strokeStyle = 'rgba(232,185,106,0.36)';
+      ctx.lineWidth = 4;
+      for (let i = 0; i < 6; i++) ctx.strokeRect(38 + i * 8, 48 + i * 8, w - 76 - i * 16, h - 96 - i * 16);
       ctx.fillStyle = '#e8b96a';
-      ctx.font = 'bold 74px Courier New';
+      ctx.font = 'bold 72px Georgia';
       ctx.textAlign = 'center';
-      ctx.fillText('VR', w / 2, h / 2 + 24);
+      ctx.fillText('WOYS', w / 2, h / 2 + 20);
       return;
     }
-    ctx.fillStyle = '#f7efe1';
+    const paper = ctx.createLinearGradient(0, 0, w, h);
+    paper.addColorStop(0, '#fffaf0');
+    paper.addColorStop(1, '#eadcc3');
+    ctx.fillStyle = paper;
     ctx.fillRect(0, 0, w, h);
     ctx.strokeStyle = '#c8aa67';
     ctx.lineWidth = 10;
     ctx.strokeRect(10, 10, w - 20, h - 20);
     ctx.fillStyle = red ? '#b3262f' : '#12100c';
-    ctx.font = 'bold 78px Courier New';
+    ctx.font = 'bold 62px Courier New';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, 24, 70);
+    ctx.font = 'bold 88px Georgia';
     ctx.textAlign = 'center';
-    ctx.fillText(label, w / 2, h / 2 + 24);
+    ctx.fillText(label.replace(/[A-Z0-9]+/, ''), w / 2, h / 2 + 46);
+    ctx.font = 'bold 40px Courier New';
+    ctx.textAlign = 'right';
+    ctx.fillText(label, w - 24, h - 34);
   });
 }
 
-function addBjCard(card, x, z, rot=0) {
+function addBjCard(card, x, z, rot=0, scale=1) {
   if (!blackjackCardGroup) return;
   const hidden = !!(card && card.hidden);
   const tex = makeBjCardTexture(cardLabel(card), cardIsRed(card), hidden);
   const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.5, 0.72),
+    new THREE.PlaneGeometry(0.58 * scale, 0.82 * scale),
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
   );
   mesh.rotation.x = -Math.PI / 2;
   mesh.rotation.z = rot;
   mesh.position.set(x, 1.165, z);
   blackjackCardGroup.add(mesh);
+}
+
+function makeBjBadgeTexture(title, sub='', color='#e8b96a', bg='rgba(12,8,5,0.92)') {
+  return canvasTex(512, 192, (ctx, w, h) => {
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 8;
+    ctx.strokeRect(8, 8, w - 16, h - 16);
+    ctx.fillStyle = color;
+    ctx.font = 'bold 52px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(title, w / 2, 78);
+    if (sub) {
+      ctx.fillStyle = '#f4dfad';
+      ctx.font = 'bold 26px Courier New';
+      ctx.fillText(sub, w / 2, 128);
+    }
+  });
+}
+
+function addBjTableBadge(title, sub, x, z, color='#e8b96a', width=1.55, height=0.58) {
+  if (!blackjackStatusGroup) return;
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(width, height),
+    new THREE.MeshBasicMaterial({ map: makeBjBadgeTexture(title, sub, color), transparent: true, side: THREE.DoubleSide })
+  );
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, 1.19, z);
+  blackjackStatusGroup.add(mesh);
 }
 
 function clearGroupChildren(group) {
@@ -431,24 +478,46 @@ function clearGroupChildren(group) {
 function renderBlackjackTable3D() {
   clearGroupChildren(blackjackCardGroup);
   clearGroupChildren(blackjackChipGroup);
+  clearGroupChildren(blackjackStatusGroup);
   if (!blackjackState || !blackjackGroup) return;
   const dealerHand = blackjackState.dealer && blackjackState.dealer.hand ? blackjackState.dealer.hand : [];
-  dealerHand.forEach((card, i) => addBjCard(card, -0.38 + i * 0.5, -0.95, -0.04 + i * 0.02));
+  const dealerStart = -((dealerHand.length - 1) * 0.34);
+  dealerHand.forEach((card, i) => addBjCard(card, dealerStart + i * 0.68, -0.96 + i * 0.02, -0.08 + i * 0.035, 1.06));
+  const dealer = blackjackState.dealer || {};
+  if (dealerHand.length) {
+    const showFull = blackjackState.phase === 'dealer_turn' || blackjackState.phase === 'results';
+    addBjTableBadge('DEALER', showFull ? `VALUE ${dealer.totalLabel || dealer.total || ''}` : `SHOWING ${dealer.totalLabel || dealer.total || ''}`, 0, -1.82, '#e8b96a', 2.0, 0.52);
+  } else {
+    addBjTableBadge('DEALER', 'WAITING', 0, -1.82, '#967848', 1.65, 0.48);
+  }
   for (let seat = 0; seat < (blackjackState.seats || []).length; seat++) {
     const id = blackjackState.seats[seat];
     const p = id && blackjackState.players ? blackjackState.players[id] : null;
-    if (!p) continue;
     const anchor = BLACKJACK_SEAT_ANCHORS[seat];
-    const startX = anchor.x * 0.72 - ((p.hand || []).length - 1) * 0.25;
-    const z = anchor.z - 1.25;
-    (p.hand || []).forEach((card, i) => addBjCard(card, startX + i * 0.5, z, anchor.ry * 0.25));
+    const turn = blackjackState.turnSeat === seat && blackjackState.phase === 'player_turn';
+    if (!p) {
+      addBjTableBadge(`SEAT ${seat + 1}`, 'EMPTY', anchor.x * 0.82, anchor.z - 0.72, '#8b7347', 1.1, 0.38);
+      continue;
+    }
+    const hand = p.hand || [];
+    const cardStartX = anchor.x * 0.68 - ((hand.length - 1) * 0.29);
+    const z = anchor.z - 1.22;
+    hand.forEach((card, i) => addBjCard(card, cardStartX + i * 0.58, z + i * 0.035, anchor.ry * 0.38 + (i - hand.length / 2) * 0.045, 0.94));
+    const statusColor = p.result === 'YOU WIN' || p.result === 'BLACKJACK' ? '#7adf9a' : (p.result === 'LOSE' || p.result === 'BUST' ? '#ff7f7f' : (p.result === 'PUSH' ? '#f2d27a' : (turn ? '#7adf9a' : '#e8b96a')));
+    const statusTitle = p.result || (turn ? 'TURN' : (p.bet ? `BET ${p.bet}` : 'SEATED'));
+    const statusSub = hand.length ? `VALUE ${p.totalLabel || p.total || ''}` : p.name;
+    addBjTableBadge(statusTitle, statusSub, anchor.x * 0.82, anchor.z - 0.55, statusColor, 1.42, 0.5);
     if (p.bet > 0 && blackjackChipGroup) {
-      const stack = Math.min(5, Math.max(1, Math.ceil(p.bet / 100)));
-      for (let j = 0; j < stack; j++) {
-        const chip = cyl(0.16, 0.16, 0.055, j % 2 ? 0xf4f0e6 : 0xb3262f, 18, 0.28, 0.2);
-        chip.position.set(anchor.x * 0.82, 1.16 + j * 0.055, anchor.z - 1.78);
+      const chipTotal = Math.min(12, Math.max(1, Math.ceil(p.bet / 50)));
+      const cols = Math.min(4, chipTotal);
+      for (let j = 0; j < chipTotal; j++) {
+        const col = j % cols;
+        const layer = Math.floor(j / cols);
+        const chip = cyl(0.145, 0.145, 0.05, j % 3 === 0 ? 0xb3262f : (j % 3 === 1 ? 0xf4f0e6 : 0x20242c), 18, 0.28, 0.2);
+        chip.position.set(anchor.x * 0.82 + (col - (cols - 1) / 2) * 0.22, 1.165 + layer * 0.052, anchor.z - 1.82);
         blackjackChipGroup.add(chip);
       }
+      addBjTableBadge(String(p.bet), 'CHIPS', anchor.x * 0.82, anchor.z - 2.18, '#f4dfad', 0.75, 0.28);
     }
   }
 }
@@ -914,6 +983,17 @@ function updatePlayer(dt, t) {
 function updateCamera() {
   const head = player.group.position.clone();
   head.y += 2.9;
+  if (seatedBlackjackSeat !== null && blackjackGroup) {
+    const seatPos = player.group.position.clone();
+    const tableCenter = blackjackGroup.localToWorld(new THREE.Vector3(0, 1.16, 0.25));
+    const away = seatPos.clone().sub(tableCenter).setY(0).normalize();
+    const side = new THREE.Vector3(-away.z, 0, away.x);
+    const camTarget = seatPos.clone().add(away.multiplyScalar(1.25)).add(side.multiplyScalar(0.25));
+    camTarget.y += 4.9;
+    camera.position.lerp(camTarget, 0.16);
+    camera.lookAt(tableCenter.x, tableCenter.y + 0.2, tableCenter.z);
+    return;
+  }
   if (viewMode === 'first') {
     camera.position.copy(head);
     camera.position.x += Math.sin(player.yaw)*0.1;
